@@ -1,6 +1,6 @@
 <template>
   <button type="button" class="btn btn-primary" @click="deviceButtonClicked" :disabled="!interf.is_webusb_available()">
-    <span v-if="!interf.is_connected()">Connect</span>
+    <span v-if="!interf.is_connected()"><font-awesome-icon icon="fa-brands fa-usb"/>Connect</span>
     <span v-else>{{ interf.get_device_name() }}</span>
   </button>
 
@@ -22,10 +22,17 @@
 <script>
 import {PTouchInterface} from "@/ptouch/interface.js";
 import * as bootstrap from 'bootstrap';
+import {FontAwesomeIcon} from "@fortawesome/vue-fontawesome";
+import {library} from "@fortawesome/fontawesome-svg-core"
+import {faUsb} from "@fortawesome/free-brands-svg-icons"
+
+library.add(faUsb);
 
 export default {
   name: 'AppImpl',
-  components: {},
+  components: {
+    'font-awesome-icon': FontAwesomeIcon,
+  },
   data() {
     return {
       interf: new PTouchInterface(),
