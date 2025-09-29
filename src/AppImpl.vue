@@ -88,9 +88,9 @@
                        readonly>
               </div>
               <div class="col-6">
-                <label for="ptStatusMediaWidth" class="form-label">Media width (mm)</label>
-                <input class="form-control" id="ptStatusMediaWidth" type="number"
-                       :value="interf.get_status().media_width_mm" readonly>
+                <label for="ptStatusHardwareSettings" class="form-label">Hardware settings</label>
+                <input class="form-control" id="ptStatusHardwareSettings" type="text"
+                       :value="'0x'+interf.get_status().hw_setting.toString(16)" readonly>
               </div>
             </div>
             <div class="row mb-3">
@@ -100,7 +100,9 @@
                        :value="interf.get_status().media_type?.name ?? '?'" readonly>
               </div>
               <div class="col-6">
-
+                <label for="ptStatusMediaWidth" class="form-label">Media width (mm)</label>
+                <input class="form-control" id="ptStatusMediaWidth" type="number"
+                       :value="interf.get_status().media_width_mm" readonly>
               </div>
             </div>
             <div class="row mb-3">

@@ -224,7 +224,7 @@ export class PTouchInterface {
                     }
                 }
 
-                let media_type_int = buf.getUint8(12);
+                let media_type_int = buf.getUint8(11);
                 let media_type: PTouchMediaType | null = null;
                 for (let mt of PTOUCH_MEDIA_TYPES) {
                     if (mt.code == media_type_int) {
@@ -283,13 +283,13 @@ export class PTouchInterface {
                 return {
                     printHeadMark: buf.getUint8(0),
                     size: buf.getUint8(1),
-                    brotherCode: buf.getUint8(3),
-                    seriesCode: buf.getUint8(4),
-                    model: buf.getUint8(5),
-                    country: buf.getUint8(6),
-                    reserved_1: buf.getUint16(7),
+                    brotherCode: buf.getUint8(2),
+                    seriesCode: buf.getUint8(3),
+                    model: buf.getUint8(4),
+                    country: buf.getUint8(5),
+                    reserved_1: buf.getUint16(6),
                     errors: error_set,
-                    media_width_mm: buf.getUint8(11),
+                    media_width_mm: buf.getUint8(10),
                     media_type: media_type,
                     ncol: buf.getUint8(12),
                     fonts: buf.getUint8(13),
