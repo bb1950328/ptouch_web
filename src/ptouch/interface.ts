@@ -34,4 +34,12 @@ export class PTouchInterface {
     get_device_name() {
         return this.deviceType?.name ?? "?";
     }
+
+    get_webusb_device() {
+        return this.device;
+    }
+
+    get_ptouch_device_type() {
+        return this.deviceType;
+    }
 }
