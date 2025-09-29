@@ -1,9 +1,23 @@
 import {
     PTOUCH_DEVICE_TYPES,
+    PTOUCH_ERROR_INFORMATIONS,
+    PTOUCH_MEDIA_TYPES,
+    PTOUCH_NOTIFICATIONS,
+    PTOUCH_PHASES,
+    PTOUCH_STATUS_TYPES,
+    PTOUCH_TAPE_COLORS,
     PTOUCH_TAPE_TYPES,
+    PTOUCH_TEXT_COLORS,
     PTouchDeviceStatus,
     PTouchDeviceType,
-    PTouchDeviceTypeFlags
+    PTouchDeviceTypeFlags,
+    PTouchErrorInformation,
+    PTouchMediaType,
+    PTouchNotification,
+    PTouchPhase,
+    PTouchStatusType,
+    PTouchTapeColor,
+    PTouchTextColor
 } from "./data";
 import {sleep} from "../util";
 
@@ -20,8 +34,33 @@ export class PTouchInterface {
     private device: USBDevice | null = null;
     private deviceType: PTouchDeviceType | null = null;
     private deviceStatus: PTouchDeviceStatus | null = null;
+    private outEndpointNr = 0x02;
+    private inEndpointNr = 0x81;
 
     async connect() {
+        await this.open();
+        await this.init();
+        await this.update_status();
+    }
+
+    async disconnect() {
+        if (!this.device) {
+            return;
+        }
+        await this.device.close();
+        this.device = null;
+        this.deviceType = null;
+    }
+
+    async update_status() {
+        this.deviceStatus = await this.getstatus();
+    }
+
+    get_status() {
+        return this.deviceStatus!;
+    }
+
+    private async open() {
         this.device = await navigator.usb.requestDevice({
             filters: PTOUCH_DEVICE_TYPES.map(device => ({
                 vendorId: device.usb_vendor_id,
@@ -37,23 +76,24 @@ export class PTouchInterface {
         await this.device.open();
         await this.device.selectConfiguration(1);
         await this.device.claimInterface(0);
-    }
-
-    async disconnect() {
-        if (!this.device) {
-            return;
+        for (let ep of this.device.configuration!.interfaces[0].alternate.endpoints) {
+            switch (ep.direction) {
+                case "out":
+                    this.outEndpointNr = ep.endpointNumber;
+                    break;
+                case "in":
+                    this.inEndpointNr = ep.endpointNumber;
+                    break;
+            }
         }
-        await this.device.close();
-        this.device = null;
-        this.deviceType = null;
     }
 
-    async send(data: Uint8Array) {
+    private async send(data: Uint8Array) {
         this.require_connected();
-        await this.device!.transferOut(0x02, data);
+        await this.device!.transferOut(this.outEndpointNr, data);
     }
 
-    async init() {
+    private async init() {
         /* first invalidate, then send init command */
         let cmd = new Uint8Array(102).fill(0);
         cmd[100] = 0x1b;/* ESC */
@@ -93,7 +133,7 @@ export class PTouchInterface {
 	       {n4}: Media length (mm)
 	       For the media of width 24 mm, specify as n3 = 18h and n4 = 00h.
 	       n4 is normally 00h, regardless of the paper length. */
-        cmd[5] = this.deviceStatus!.media_width;
+        cmd[5] = this.deviceStatus!.media_width_mm;
 
         /* {n5} -{n8}: Raster number
 	       n8*256*256*256 + n7*256*256 + n6*256 + n5 */
@@ -153,7 +193,7 @@ export class PTouchInterface {
         await this.send(cmd);
     }
 
-    async getstatus(): Promise<PTouchDeviceStatus | null> {
+    private async getstatus(): Promise<PTouchDeviceStatus | null> {
         let cmd = new Uint8Array([0x1b, 0x69, 0x53]);/* 1B 69 53 = ESC i S = Status info request */
         await this.send(cmd);
 
@@ -162,12 +202,13 @@ export class PTouchInterface {
         let buf: DataView<ArrayBuffer> | null = null;
         while (tx == 0 && tries < 10) {
             await sleep(100);
-            let transferResult = await this.device!.transferIn(0x81, 32);
+            let transferResult = await this.device!.transferIn(this.inEndpointNr, 32);
             if (transferResult.status != "ok") {
                 throw new Error("Failed to read status. Transfer result: " + transferResult.status);
 
             }
             buf = transferResult.data!;
+            tx = buf.byteLength;
         }
         if (tx == 0 || buf == null) {
             throw new Error("Failed to read status. Timeout");
@@ -175,6 +216,70 @@ export class PTouchInterface {
 
         if (buf.byteLength == 32) {
             if (buf.getUint8(0) == 0x80 && buf.getUint8(1) == 0x20) {
+                let error_int = buf.getUint16(9, false);
+                let error_set = new Set<PTouchErrorInformation>();
+                for (let ei of PTOUCH_ERROR_INFORMATIONS) {
+                    if (ei.mask & error_int) {
+                        error_set.add(ei);
+                    }
+                }
+
+                let media_type_int = buf.getUint8(12);
+                let media_type: PTouchMediaType | null = null;
+                for (let mt of PTOUCH_MEDIA_TYPES) {
+                    if (mt.code == media_type_int) {
+                        media_type = mt;
+                        break;
+                    }
+                }
+
+                let status_type_int = buf.getUint8(18);
+                let status_type: PTouchStatusType | null = null;
+                for (let st of PTOUCH_STATUS_TYPES) {
+                    if (st.code == status_type_int) {
+                        status_type = st;
+                        break;
+                    }
+                }
+
+                let phase_type_int = buf.getUint8(19);
+                let phase_num_h = buf.getUint8(20);
+                let phase_num_l = buf.getUint8(21);
+                let phase: PTouchPhase | null = null;
+                for (let p of PTOUCH_PHASES) {
+                    if (p.type == phase_type_int && p.number_h == phase_num_h && p.number_l == phase_num_l) {
+                        phase = p;
+                        break;
+                    }
+                }
+
+                let notif_int = buf.getUint8(22);
+                let notif: PTouchNotification | null = null;
+                for (let n of PTOUCH_NOTIFICATIONS) {
+                    if (n.code == notif_int) {
+                        notif = n;
+                        break;
+                    }
+                }
+
+                let tape_color_int = buf.getUint8(24);
+                let tape_color: PTouchTapeColor | null = null;
+                for (let tc of PTOUCH_TAPE_COLORS) {
+                    if (tc.code == tape_color_int) {
+                        tape_color = tc;
+                        break;
+                    }
+                }
+
+                let text_color_int = buf.getUint8(25);
+                let text_color: PTouchTextColor | null = null;
+                for (let tc of PTOUCH_TEXT_COLORS) {
+                    if (tc.code == text_color_int) {
+                        text_color = tc;
+                        break;
+                    }
+                }
+
                 return {
                     printHeadMark: buf.getUint8(0),
                     size: buf.getUint8(1),
@@ -183,22 +288,21 @@ export class PTouchInterface {
                     model: buf.getUint8(5),
                     country: buf.getUint8(6),
                     reserved_1: buf.getUint16(7),
-                    error: buf.getUint16(9),
-                    media_width: buf.getUint8(11),
-                    media_type: buf.getUint8(12),
+                    errors: error_set,
+                    media_width_mm: buf.getUint8(11),
+                    media_type: media_type,
                     ncol: buf.getUint8(12),
                     fonts: buf.getUint8(13),
                     jp_fonts: buf.getUint8(14),
                     mode: buf.getUint8(15),
                     density: buf.getUint8(16),
                     media_len: buf.getUint8(17),
-                    status_type: buf.getUint8(18),
-                    phase_type: buf.getUint8(19),
-                    phase_number: buf.getUint16(20),
-                    notif_number: buf.getUint8(22),
+                    status_type: status_type,
+                    phase: phase,
+                    notification: notif,
                     exp: buf.getUint8(23),
-                    tape_color: buf.getUint8(24),
-                    text_color: buf.getUint8(25),
+                    tape_color: tape_color,
+                    text_color: text_color,
                     hw_setting: buf.getUint32(26),
                     reserved_2: buf.getUint16(30),
                 };
@@ -212,13 +316,13 @@ export class PTouchInterface {
         }
         console.warn("Strange status: ", buf);
         console.info("trying to flush junk");
-        await this.device!.transferIn(0x81, 32);
+        await this.device!.transferIn(this.inEndpointNr, 32);
         return null;
     }
 
     get_tape_info() {
         for (let ti of PTOUCH_TAPE_TYPES) {
-            if (ti.width_mm == this.deviceStatus!.media_width) {
+            if (ti.width_mm == this.deviceStatus!.media_width_mm) {
                 return ti;
             }
         }

@@ -60,7 +60,7 @@
                        readonly>
               </div>
             </div>
-            <h4>PT-Touch</h4>
+            <h4>P-Touch Device Type</h4>
             <div class="row mb-3">
               <div class="col-12">
                 <label for="ptTouchDeviceName" class="form-label">Device Name</label>
@@ -78,6 +78,67 @@
                 <label for="ptTouchDPI" class="form-label">DPI</label>
                 <input class="form-control" id="ptTouchDPI" type="text" :value="interf.get_ptouch_device_type().dpi"
                        readonly>
+              </div>
+            </div>
+            <h4>P-Touch Device Status</h4>
+            <div class="row mb-3">
+              <div class="col-6">
+                <label for="ptStatusModelCode" class="form-label">Model code</label>
+                <input class="form-control" id="ptStatusModelCode" type="number" :value="interf.get_status().model"
+                       readonly>
+              </div>
+              <div class="col-6">
+                <label for="ptStatusMediaWidth" class="form-label">Media width (mm)</label>
+                <input class="form-control" id="ptStatusMediaWidth" type="number"
+                       :value="interf.get_status().media_width_mm" readonly>
+              </div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-6">
+                <label for="ptStatusMediaType" class="form-label">Media type</label>
+                <input class="form-control" id="ptStatusMediaType" type="text"
+                       :value="interf.get_status().media_type?.name ?? '?'" readonly>
+              </div>
+              <div class="col-6">
+
+              </div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-6">
+                <label for="ptStatusTapeColor" class="form-label">Tape color</label>
+                <input class="form-control" id="ptStatusTapeColor" type="text"
+                       :value="interf.get_status().tape_color?.name ?? '?'" readonly>
+              </div>
+              <div class="col-6">
+                <label for="ptStatusTextColors" class="form-label">Text color</label>
+                <input class="form-control" id="ptStatusTextColors" type="text"
+                       :value="interf.get_status().text_color?.name ?? '?'" readonly>
+              </div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-6">
+                <div class="form-check" v-for="et in PTOUCH_ERROR_INFORMATIONS()" :key="et.mask">
+                  <input class="form-check-input" type="checkbox" value="" id="errorInfo{{et.mask}}"
+                         :checked="interf.get_status().errors.has(et)">
+                  <label class="form-check-label" for="errorInfo{{et.mask}}">{{ et.description }}</label>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="row mb-3">
+                  <label for="ptStatusType" class="form-label">Type</label>
+                  <input class="form-control" id="ptStatusType" type="text"
+                         :value="interf.get_status().status_type?.name ?? '?'" readonly>
+                </div>
+                <div class="row mb-3">
+                  <label for="ptStatusPhase" class="form-label">Phase</label>
+                  <input class="form-control" id="ptStatusPhase" type="text"
+                         :value="interf.get_status().phase?.description ??'?'" readonly>
+                </div>
+                <div class="row mb-3">
+                  <label for="ptStatusNotification" class="form-label">Notification</label>
+                  <input class="form-control" id="ptStatusNotification" type="text"
+                         :value="interf.get_status().notification?.description ??'?'" readonly>
+                </div>
               </div>
             </div>
           </div>
@@ -108,6 +169,7 @@ import {FontAwesomeIcon} from "@fortawesome/vue-fontawesome";
 import {library} from "@fortawesome/fontawesome-svg-core"
 import {faGear} from "@fortawesome/free-solid-svg-icons";
 import {faUsb} from "@fortawesome/free-brands-svg-icons"
+import {PTOUCH_ERROR_INFORMATIONS} from "@/ptouch/data.js";
 
 library.add(faUsb, faGear);
 
@@ -132,6 +194,9 @@ export default {
     }
   },
   methods: {
+    PTOUCH_ERROR_INFORMATIONS() {
+      return PTOUCH_ERROR_INFORMATIONS
+    },
     async deviceButtonClicked() {
       console.log("deviceButtonClicked");
       await this.interf.connect();

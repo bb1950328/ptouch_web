@@ -32,6 +32,23 @@ export interface PTouchDeviceType {
     flags: Set<PTouchDeviceTypeFlags>;
 }
 
+export interface PTouchErrorInformation {
+    mask: number,
+    description: string,
+}
+
+export interface PTouchPhase {
+    type: number;
+    number_h: number;
+    number_l: number;
+    description: string;
+}
+
+export interface PTouchNotification {
+    code: number;
+    description: string;
+}
+
 export interface PTouchDeviceStatus {
     printHeadMark: number;//0x80
     size: number;//0x20
@@ -40,22 +57,21 @@ export interface PTouchDeviceStatus {
     model: number;
     country: number;//"0"
     reserved_1: number;
-    error: number;//table 1 and 2
-    media_width: number;//tape width in mm
-    media_type: number;//table 4
+    errors: Set<PTouchErrorInformation>;
+    media_width_mm: number;//tape width in mm
+    media_type: PTouchMediaType | null;
     ncol: number;//0
     fonts: number;//0
     jp_fonts: number;//0
     mode: number;
     density: number;//0
     media_len: number;//table length, always 0
-    status_type: number;//table 5
-    phase_type: number;
-    phase_number: number;//table 6
-    notif_number: number;
+    status_type: PTouchStatusType | null;
+    phase: PTouchPhase | null;
+    notification: PTouchNotification | null;
     exp: number;//0
-    tape_color: number;//table 8
-    text_color: number;//table 9
+    tape_color: PTouchTapeColor | null;
+    text_color: PTouchTextColor | null;
     hw_setting: number;
     reserved_2: number;
 }
@@ -76,6 +92,11 @@ export interface PTouchTextColor {
     name: string,
 }
 
+export interface PTouchStatusType {
+    code: number,
+    name: string,
+}
+
 //@formatter:off
 export const PTOUCH_TAPE_TYPES: PTouchTapeInfo[] = [
     {width_mm: 4, width_px: 24, margins_mm: 0.5},
@@ -88,18 +109,21 @@ export const PTOUCH_TAPE_TYPES: PTouchTapeInfo[] = [
 ];
 
 export const PTOUCH_MEDIA_TYPES: PTouchMediaType[] = [
+    ////table 4, page 27
     {code: 0x00, name: "No Media"},
     {code: 0x01, name: "Laminated Tape"},
     {code: 0x03, name: "Non-Laminated Tape"},
     {code: 0x04, name: "Fabric Tape"},
-    {code: 0x11, name: "Heat Shrink Tube"},
+    {code: 0x11, name: "Heat Shrink Tube (HS 2:1)"},
     {code: 0x13, name: "Fle Tape"},
     {code: 0x14, name: "Flexible ID Tape"},
     {code: 0x15, name: "Satin Tape"},
+    {code: 0x17, name: "Heat Shrink Tube (HS 3:1)"},
     {code: 0xff, name: "Incompatible Tape"},
 ];
 
 export const PTOUCH_TAPE_COLORS: PTouchTapeColor[] = [
+    //table 8, page 29
     {code: 0x01, name: "White"},
     {code: 0x02, name: "Other"},
     {code: 0x03, name: "Clear"},
@@ -134,6 +158,7 @@ export const PTOUCH_TAPE_COLORS: PTouchTapeColor[] = [
 
 
 export const PTOUCH_TEXT_COLORS: PTouchTextColor[] = [
+    //table 10, page 30
     {code: 0x01, name: "White"},
     {code: 0x02, name: "Other"},
     {code: 0x04, name: "Red"},
@@ -169,4 +194,44 @@ export const PTOUCH_DEVICE_TYPES: PTouchDeviceType[] = [
     { usb_vendor_id: 0x04f9, usb_product_id: 0x20e1, name: "PT-D610BT", max_width_px: 128, dpi: 180, flags: new Set<PTouchDeviceTypeFlags>([PTouchDeviceTypeFlags.P700_INIT, PTouchDeviceTypeFlags.USE_INFO_CMD, PTouchDeviceTypeFlags.HAS_PRECUT, PTouchDeviceTypeFlags.D460BT_MAGIC]) },
     { usb_vendor_id: 0x04f9, usb_product_id: 0x20af, name: "PT-P710BT", max_width_px: 128, dpi: 180, flags: new Set<PTouchDeviceTypeFlags>([PTouchDeviceTypeFlags.RASTER_PACKBITS, PTouchDeviceTypeFlags.HAS_PRECUT]) },
 ];
+
+
+export const PTOUCH_ERROR_INFORMATIONS: PTouchErrorInformation[] = [
+    //table 1, page 26
+    {mask: 0x01, description: "No media"},
+    {mask: 0x4, description: "Cutter Jam"},
+    {mask: 0x8, description: "Weak Batteries"},
+    {mask: 0x40, description: "High Voltage Adapter"},
+
+    //table 2, page 26
+    {mask: 0x01<<8, description: "Replace media"},
+    {mask: 0x10<<8, description: "Cover open"},
+    {mask: 0x20<<8, description: "Overheating"},
+];
+
+export const PTOUCH_STATUS_TYPES: PTouchStatusType[] = [
+    //table 5, page 28
+    {code: 0x00, name: "Reply to status request"},
+    {code: 0x01, name: "Printing completed"},
+    {code: 0x02, name: "Error occurred"},
+    {code: 0x03, name: "Exit IF mode"},
+    {code: 0x04, name: "Turned off"},
+    {code: 0x05, name: "Notification"},
+    {code: 0x06, name: "Phase change"},
+]
+
+export const PTOUCH_PHASES: PTouchPhase[] = [
+    //table 6, page 28
+    {type: 0x00, number_h: 0x00, number_l: 0x00, description: "Editing state (reception possible)"},
+    {type: 0x00, number_h: 0x00, number_l: 0x01, description: "Feed"},
+    {type: 0x01, number_h: 0x00, number_l: 0x00, description: "Printing"},
+    {type: 0x01, number_h: 0x00, number_l: 0x14, description: "Cover open while receiving"},
+]
+
+export const PTOUCH_NOTIFICATIONS: PTouchNotification[] = [
+    //table 7, page 29
+    {code: 0x00, description: "Not available"},
+    {code: 0x01, description: "Cover open"},
+    {code: 0x02, description: "Cover closed"},
+]
 //@formatter:on
