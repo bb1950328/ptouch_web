@@ -62,24 +62,38 @@ export default {
   },
   methods: {
     renderCanvas() {
+      //todo
+      let fgColor = "#000000";
+      let bgColor = "#ffffff";
+
       let canvas = this.$refs.canvasElement as HTMLCanvasElement;
       let ctx = canvas.getContext("2d")!;
-
+      ctx.fillStyle = fgColor;
+      ctx.strokeStyle = fgColor;
       this.design.elements().forEach(e => {
+        ctx.save();
         e.update({ctx: ctx, px_per_mm: this.px_per_mm});
+        ctx.restore();
       });
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
 
       this.design.elements().forEach(e => {
-        e.render({ctx: ctx, px_per_mm: this.px_per_mm, fg_color: "#000000", bg_color: "#ffffff"});
+        ctx.save();
+        e.render({ctx: ctx, px_per_mm: this.px_per_mm, fg_color: fgColor, bg_color: bgColor});
+        ctx.restore();
       });
+      ctx.save();
       this.selected_element_ids.forEach(id => {
         const element = this.design.get_element(id);
         const bbox = element.bbox();
         ctx.strokeStyle = "#0000ff";
         ctx.strokeRect(bbox.x1() * this.px_per_mm, bbox.y1() * this.px_per_mm, bbox.width() * this.px_per_mm, bbox.height() * this.px_per_mm);
-      })
+      });
+      ctx.restore();
     },
     onCanvasClicked(event: MouseEvent) {
       let elementEvent: PreviewElementClickedEvent = {

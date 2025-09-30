@@ -17,11 +17,17 @@
 <script lang="ts">
 import {PropType} from "vue";
 import {DesignElementText} from "@/design";
+import {getSingleValue} from "@/components/editor/editor";
 
 export default {
   name: "EditorText",
   props: {
     elements: {type: Array as PropType<DesignElementText[]>, required: true},
+  },
+  data() {
+    return {
+      elementsMutable: this.elements.map(e => e.clone()),
+    };
   },
   emits: {
     elementsChanged(elements: DesignElementText[]): boolean {
@@ -31,44 +37,27 @@ export default {
   computed: {
     valueText: {
       get(): string {
-        let value = this.elements[0].getText();
-        for (let i = 1; i < this.elements.length; i++) {
-          let v2 = this.elements[i].getText();
-          if (value === v2) {
-            value = "";
-          }
-        }
-        return value;
+        return getSingleValue(this.elementsMutable, e => e.getText(), "");
       },
       set(newValue: string) {
-        this.elements.forEach(e => e.setText(newValue));
+        this.elementsMutable.forEach(e => e.setText(newValue));
         this.emitElementsChanged();
       }
     },
     valueFontSize: {
       get(): number {
-        return this.getSingleValue(e => e.getFontSize(), 0);
+        return getSingleValue(this.elementsMutable, e => e.getFontSize(), 0);
       },
       set(newValue: number) {
-        this.elements.forEach(e => e.setFontSize(newValue));
+        this.elementsMutable.forEach(e => e.setFontSize(newValue));
         this.emitElementsChanged();
       }
     }
   },
   methods: {
     emitElementsChanged() {
-      this.$emit("elementsChanged", this.elements);
-    },
-    getSingleValue<T>(getter: (element: DesignElementText) => T, defaultValue: T): T {
-      let singleValue: T = getter(this.elements[0]);
-      for (let i = 0; i < this.elements.length; i++) {
-        let v = getter(this.elements[i]);
-        if (v !== singleValue) {
-          singleValue = defaultValue;
-        }
-      }
-      return singleValue;
-    },
+      this.$emit("elementsChanged", this.elementsMutable);
+    }
   }
 };
 </script>

@@ -16,15 +16,38 @@
 
   <Preview :design="design" :px_per_mm="8" :tape_width_mm="24" :tape_length_mm="1000" :selected_element_ids="selected_element_ids" @elementClicked="onElementClicked"/>
 
-  <div class="btn-toolbar gap-1" role="toolbar" aria-label="Actions Toolbar">
+  <div class="btn-toolbar gap-1 mt-2 mb-2" role="toolbar" aria-label="Actions Toolbar">
     <div class="btn-group" role="group" aria-label="Add Element">
-      <button type="button" class="btn btn-primary">+ Text</button>
-      <button type="button" class="btn btn-primary">+ Image</button>
+      <button type="button" class="btn btn-primary" v-on:click="addElementText">
+        <font-awesome-icon icon="fa-solid fa-font"/>
+        Text
+      </button>
+      <button type="button" class="btn btn-primary" v-on:click="addElementImage">
+        <font-awesome-icon icon="fa-solid fa-image"/>
+        Image
+      </button>
     </div>
 
     <div class="btn-group" role="group" aria-label="Actions">
-      <button type="button" class="btn btn-primary" :disabled="selected_element_ids.size==0" v-on:click="cloneSelectedElements">Clone</button>
-      <button type="button" class="btn btn-danger" :disabled="selected_element_ids.size==0" v-on:click="deleteSelectedElements">Delete</button>
+      <button type="button" class="btn btn-primary" :disabled="selected_element_ids.size==0" v-on:click="cloneSelectedElements">
+        <font-awesome-icon icon="fa-solid fa-clone"/>
+        Clone
+      </button>
+      <button type="button" class="btn btn-danger" :disabled="selected_element_ids.size==0" v-on:click="deleteSelectedElements">
+        <font-awesome-icon icon="fa-solid fa-trash-can"/>
+        Delete
+      </button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h5 class="card-header">Properties</h5>
+    <div class="card-body">
+      <p v-if="selected_element_ids.size==0">No element selected.</p>
+      <div v-else>
+        <EditorText v-if="shown_editor_types.has('text')" :elements="selected_elements as DesignElementText[]" @elementsChanged="editorElementsChanged"/>
+        <EditorImage v-if="shown_editor_types.has('image')" :elements="selected_elements as DesignElementImage[]" @elementsChanged="editorElementsChanged"/>
+      </div>
     </div>
   </div>
 
@@ -33,8 +56,8 @@
   <div class="toast-container position-fixed top-0 end-0 p-3">
     <div id="errorNoWebUSB" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
       <div class="toast-header">
-        <strong class="me-auto">Bootstrap</strong>
-        <small>11 mins ago</small>
+        <strong class="me-auto">Error</strong>
+        <small></small>
         <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
       </div>
       <div class="toast-body">
@@ -50,20 +73,24 @@ import {PTouchInterface, PTouchInterfaceUSB} from "@/ptouch/interface"
 import * as bootstrap from 'bootstrap';
 import {FontAwesomeIcon} from "@fortawesome/vue-fontawesome";
 import {library} from "@fortawesome/fontawesome-svg-core"
-import {faGear} from "@fortawesome/free-solid-svg-icons";
+import {faClone, faFont, faGear, faImage, faTrashCan} from "@fortawesome/free-solid-svg-icons";
 import {faUsb} from "@fortawesome/free-brands-svg-icons"
 import DeviceInfoModal from "@/components/device_info_modal/DeviceInfoModal.vue";
 
 import {DeviceInfoModalProps, PTouchDeviceStatusData, PTouchDeviceTypeData, WebUSBInfoData} from "@/components/device_info_modal/prop_type";
 import {PTouchInterfaceMock} from "@/ptouch/mock_interface";
 import Preview, {PreviewElementClickedEvent} from "@/components/preview/Preview.vue";
-import {Design, DesignElementText, DesignInterface} from "@/design";
+import {Design, DesignElement, DesignElementImage, DesignElementText, DesignInterface} from "@/design";
+import EditorText from "@/components/editor/EditorText.vue";
+import EditorImage from "@/components/editor/EditorImage.vue";
 
-library.add(faUsb, faGear);
+library.add(faUsb, faGear, faFont, faImage, faClone, faTrashCan);
 
 export default {
   name: 'AppImpl',
   components: {
+    EditorImage,
+    EditorText,
     Preview,
     'font-awesome-icon': FontAwesomeIcon,
     DeviceInfoModal,
@@ -121,7 +148,32 @@ export default {
         devType: rDevType,
         status: rStatus
       };
-    }
+    },
+    selected_elements(): DesignElement[] {
+      let result = new Array<DesignElement>();
+      this.selected_element_ids.forEach(id => {
+        let element = this.design.get_element(id);
+        result.push(element);
+      });
+      return result;
+    },
+    shown_editor_types(): Set<EditorType> {
+      let result = new Set<EditorType>(["text", "image"]);
+      if (this.selected_element_ids.size == 0) {
+        result.clear();
+      } else {
+        this.selected_element_ids.forEach(id => {
+          let element = this.design.get_element(id);
+          if (!(element instanceof DesignElementText)) {
+            result.delete("text");
+          }
+          if (!(element instanceof DesignElementImage)) {
+            result.delete("image");
+          }
+        });
+      }
+      return result;
+    },
   },
   async setup() {
     console.log("setup");
@@ -132,9 +184,6 @@ export default {
       let t = bootstrap.Toast.getOrCreateInstance(toast);
       t.show();
     }
-
-    this.design.add(new DesignElementText(this.design.nextId(), "Hello World", 10, 10, 3));
-    this.design.add(new DesignElementText(this.design.nextId(), "Hello World", 10, 30, 3));
   },
   methods: {
     async deviceButtonClicked() {
@@ -169,7 +218,7 @@ export default {
       this.selected_element_ids.forEach(id => {
         let original = this.design.get_element(id);
         let nextId = this.design.nextId();
-        let clone = original.clone(nextId);
+        let clone = original.duplicate(nextId, this.design.rightEndMM());
         newIds.add(nextId);
         this.design.add(clone);
       });
@@ -179,6 +228,32 @@ export default {
       this.selected_element_ids.forEach(id => this.design.remove(id));
       this.selected_element_ids.clear();
     },
+    addElementText() {
+      let tapeWidth = this.interf.get_status().media_width_mm;
+      let element = new DesignElementText(this.design.nextId(), "Text", this.design.rightEndMM(), tapeWidth / 4, tapeWidth / 2);
+      this.design.add(element);
+      this.selected_element_ids.clear();
+      this.selected_element_ids.add(element.id());
+    },
+    addElementImage() {
+      let tapeWidth = this.interf.get_status().media_width_mm;
+      let element = new DesignElementImage(this.design.nextId(),
+          null,
+          this.design.rightEndMM(),
+          tapeWidth / 8,
+          tapeWidth / 4 * 3,
+          tapeWidth / 4 * 3,
+          true,
+          false,
+          0.5,
+      );
+      this.design.add(element);
+      this.selected_element_ids.clear();
+      this.selected_element_ids.add(element.id());
+    },
+    editorElementsChanged(newElements: DesignElement[]) {
+      newElements.forEach(e => this.design.replace(e));
+    }
   },
 }
 </script>
