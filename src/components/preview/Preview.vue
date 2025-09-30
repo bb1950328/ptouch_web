@@ -10,7 +10,7 @@
         <RulerComponent :length_px="tape_length_mm*px_per_mm" direction="top" :pixel-per-mm="px_per_mm"/>
       </div>
       <div class="preview-canvas">
-        <canvas id="previewCanvas" :width="tape_length_mm*px_per_mm" :height="tape_width_mm*px_per_mm" ref="canvasElement"></canvas>
+        <canvas id="previewCanvas" :width="tape_length_mm*px_per_mm" :height="tape_width_mm*px_per_mm" ref="canvasElement" v-on:click="onCanvasClicked"></canvas>
       </div>
     </div>
   </div>
@@ -22,17 +22,35 @@ import {PropType} from "vue";
 import {DesignInterface} from "@/design";
 import RulerComponent from "@/components/preview/RulerComponent.vue";
 
+export interface PreviewElementClickedEvent {
+  element_id: number | null,
+  ctrlPressed: boolean,
+  shiftPressed: boolean
+}
+
 export default {
   name: "Preview",
   components: {RulerComponent: RulerComponent},
   props: {
     design: {type: Object as PropType<DesignInterface>, required: true},
+    selected_element_ids: {type: Set as PropType<Set<number>>, required: true},
     px_per_mm: {type: Number, required: true},
     tape_width_mm: {type: Number, required: true},
     tape_length_mm: {type: Number, required: true},
   },
+  emits: {
+    elementClicked(payload: PreviewElementClickedEvent): boolean {
+      return true;
+    },
+  },
   watch: {
     design: {
+      handler() {
+        this.renderCanvas();
+      },
+      deep: true,
+    },
+    selected_element_ids: {
       handler() {
         this.renderCanvas();
       },
@@ -56,6 +74,27 @@ export default {
       this.design.elements().forEach(e => {
         e.render({ctx: ctx, px_per_mm: this.px_per_mm, fg_color: "#000000", bg_color: "#ffffff"});
       });
+      this.selected_element_ids.forEach(id => {
+        const element = this.design.get_element(id);
+        const bbox = element.bbox();
+        ctx.strokeStyle = "#0000ff";
+        ctx.strokeRect(bbox.x1(), bbox.y1(), bbox.width(), bbox.height());
+      })
+    },
+    onCanvasClicked(event: MouseEvent) {
+      let elementEvent: PreviewElementClickedEvent = {
+        element_id: null,
+        ctrlPressed: event.ctrlKey,
+        shiftPressed: event.shiftKey,
+      };
+      for (let i = this.design.elements().length - 1; i >= 0; i--) {
+        const element = this.design.elements()[i];
+        if (element.bbox().containsPoint(event.offsetX, event.offsetY)) {
+          elementEvent.element_id = element.id();
+          break;
+        }
+      }
+      this.$emit("elementClicked", elementEvent);
     }
   }
 }

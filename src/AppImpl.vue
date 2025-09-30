@@ -14,7 +14,7 @@
     </ul>
   </div>
 
-  <Preview :design="design" :px_per_mm="8" :tape_width_mm="24" :tape_length_mm="1000"/>
+  <Preview :design="design" :px_per_mm="8" :tape_width_mm="24" :tape_length_mm="1000" :selected_element_ids="selected_element_ids" @elementClicked="onElementClicked"/>
 
   <DeviceInfoModal v-if="deviceInfoData!=null" ref="deviceInfoModal" :info="deviceInfoData"/>
 
@@ -44,7 +44,7 @@ import DeviceInfoModal from "@/components/device_info_modal/DeviceInfoModal.vue"
 
 import {DeviceInfoModalProps, PTouchDeviceStatusData, PTouchDeviceTypeData, WebUSBInfoData} from "@/components/device_info_modal/prop_type";
 import {PTouchInterfaceMock} from "@/ptouch/mock_interface";
-import Preview from "@/components/preview/Preview.vue";
+import Preview, {PreviewElementClickedEvent} from "@/components/preview/Preview.vue";
 import {Design, DesignElementText, DesignInterface} from "@/design";
 
 library.add(faUsb, faGear);
@@ -60,6 +60,7 @@ export default {
     return {
       interf: new PTouchInterfaceUSB() as PTouchInterface,
       design: new Design() as DesignInterface,
+      selected_element_ids: new Set<number>(),
     }
   },
   computed: {
@@ -120,7 +121,8 @@ export default {
       t.show();
     }
 
-    this.design.add(new DesignElementText("Hello World", 10, 10, 3));
+    this.design.add(new DesignElementText(this.design.nextId(), "Hello World", 10, 10, 3));
+    this.design.add(new DesignElementText(this.design.nextId(), "Hello World", 10, 30, 3));
   },
   methods: {
     async deviceButtonClicked() {
@@ -133,6 +135,19 @@ export default {
     connnectMockDevice() {
       this.interf = new PTouchInterfaceMock();
       this.interf.connect();
+    },
+    onElementClicked(event: PreviewElementClickedEvent) {
+      if (event.ctrlPressed && event.element_id != null) {
+        if (this.selected_element_ids.has(event.element_id)) {
+          this.selected_element_ids.delete(event.element_id);
+        } else {
+          this.selected_element_ids.add(event.element_id);
+        }
+      } else if (event.element_id != null && !this.selected_element_ids.has(event.element_id)) {
+        this.selected_element_ids.add(event.element_id);
+      } else {
+        this.selected_element_ids.clear();
+      }
     }
   },
 }
