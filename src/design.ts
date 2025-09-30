@@ -108,6 +108,22 @@ export class DesignElementText implements DesignElement {
         info.ctx.fillStyle = info.fg_color;
         info.ctx.fillText(this._text, this._x, this._y);
     }
+
+    getText(): string {
+        return this._text;
+    }
+
+    setText(text: string) {
+        this._text = text;
+    }
+
+    getFontSize(): number {
+        return this._size_mm;
+    }
+
+    setFontSize(size: number) {
+        this._size_mm = size;
+    }
 }
 
 export interface DesignSettings {
