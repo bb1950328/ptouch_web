@@ -56,6 +56,9 @@
     </div>
   </div>
 
+  <!-- TODO remove or hide -->
+  <textarea :value="JSON.stringify(design, null, 2)" rows="20" class="form-control w-100 mt-5" readonly/>
+
   <DeviceInfoModal v-if="deviceInfoData!=null" ref="deviceInfoModal" :info="deviceInfoData"/>
 
   <div class="toast-container position-fixed top-0 end-0 p-3">

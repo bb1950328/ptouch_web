@@ -34,6 +34,11 @@ export default {
       return true;
     }
   },
+  watch: {
+    elements() {
+      this.elementsMutable = this.elements.map(e => e.clone());
+    }
+  },
   computed: {
     valueText: {
       get(): string {

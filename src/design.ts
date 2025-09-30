@@ -1,6 +1,6 @@
 import {hexToRgb} from "@/util";
 import {IconDefinition} from "@fortawesome/fontawesome-svg-core";
-import {faFont, faGear, faImage, faStar} from "@fortawesome/free-solid-svg-icons";
+import {findIconByName} from "@/icons";
 
 export class BBox {
     private readonly _x1: number;
@@ -473,15 +473,7 @@ export class DesignElementIcon implements DesignElement {
     private _size_mm: number;
 
     private _calculated_width_mm: number | null = null;
-    private _path: Path2D | null = null;
 
-    // todo support all icons
-    private static readonly _icons: Record<string, IconDefinition> = {
-        star: faStar,
-        gear: faGear,
-        image: faImage,
-        font: faFont,
-    };
 
     constructor(id: number, icon_name: string, x_mm: number, y_mm: number, size_mm: number) {
         this._id = id;
@@ -512,45 +504,44 @@ export class DesignElementIcon implements DesignElement {
         const def = this.getIconDef();
         if (!def) {
             this._calculated_width_mm = this._size_mm;
-            this._path = null;
             return;
         }
         const width = def.icon[0];
         const height = def.icon[1];
-        const svgPathData = def.icon[4];
 
         this._calculated_width_mm = this._size_mm * (width / height);
+    }
 
-        // Build a combined Path2D from svgPathData
+    render(info: RenderInfo): void {
+        const def = this.getIconDef();
+        if (!def) {
+            return;
+        }
+        const height = def.icon[1];
+        const svgPathData = def.icon[4];
+        const scale = (this._size_mm * info.px_per_mm) / height;
+
+        let _path: Path2D;
         if (typeof svgPathData === 'string') {
-            this._path = new Path2D(svgPathData);
+            _path = new Path2D(svgPathData);
         } else {
             const p = new Path2D();
             for (const d of svgPathData) {
                 p.addPath(new Path2D(d));
             }
-            this._path = p;
+            _path = p;
         }
-    }
-
-    render(info: RenderInfo): void {
-        const def = this.getIconDef();
-        if (!def || !this._path) {
-            return;
-        }
-        const height = def.icon[1];
-        const scale = (this._size_mm * info.px_per_mm) / height;
 
         info.ctx.save();
         info.ctx.translate(this._x_mm * info.px_per_mm, this._y_mm * info.px_per_mm);
         info.ctx.scale(scale, scale);
         info.ctx.fillStyle = info.fg_color;
-        info.ctx.fill(this._path);
+        info.ctx.fill(_path);
         info.ctx.restore();
     }
 
     private getIconDef(): IconDefinition | null {
-        return DesignElementIcon._icons[this._icon_name] ?? null;
+        return findIconByName(this._icon_name);
     }
 
     getIconName(): string {
@@ -558,11 +549,7 @@ export class DesignElementIcon implements DesignElement {
     }
 
     setIconName(name: string) {
-        if (this._icon_name !== name) {
-            this._icon_name = name;
-            // Force recalculation on next update
-            this._path = null;
-        }
+        this._icon_name = name;
     }
 
     getSizeMM(): number {
