@@ -48,6 +48,8 @@ export interface DesignElement {
     update(info: UpdateInfo): void;
 
     render(info: RenderInfo): void;
+
+    clone(newId: number): this;
 }
 
 export interface BaseInfo {
@@ -66,19 +68,23 @@ export interface RenderInfo extends BaseInfo {
 export class DesignElementText implements DesignElement {
     private readonly _id: number;
     private _text: string;
-    private _x: number;
-    private _y: number;
+    private _x_mm: number;
+    private _y_mm: number;
     private _size_mm: number;
 
-    private _calculatedWidth: number | null = null;
-    private _calculatedHeight: number | null = null;
+    private _calculated_width_mm: number | null = null;
+    private _calculated_height_mm: number | null = null;
 
     constructor(id: number, text: string, x: number, y: number, size: number) {
         this._id = id;
         this._text = text;
-        this._x = x;
-        this._y = y;
+        this._x_mm = x;
+        this._y_mm = y;
         this._size_mm = size;
+    }
+
+    clone(newId: number): this {
+        return new DesignElementText(newId, this._text, this._x_mm + 1, this._y_mm + 1, this._size_mm) as this;
     }
 
     id(): number {
@@ -88,8 +94,8 @@ export class DesignElementText implements DesignElement {
     update(info: UpdateInfo) {
         this.initCtx(info);
         let text_metrics = info.ctx.measureText(this._text);
-        this._calculatedWidth = text_metrics.actualBoundingBoxLeft + text_metrics.actualBoundingBoxRight;
-        this._calculatedHeight = text_metrics.fontBoundingBoxAscent + text_metrics.fontBoundingBoxDescent;
+        this._calculated_width_mm = (text_metrics.actualBoundingBoxLeft + text_metrics.actualBoundingBoxRight) / info.px_per_mm;
+        this._calculated_height_mm = (text_metrics.fontBoundingBoxAscent + text_metrics.fontBoundingBoxDescent) / info.px_per_mm;
     }
 
     private initCtx(info: BaseInfo) {
@@ -100,13 +106,13 @@ export class DesignElementText implements DesignElement {
     }
 
     bbox(): BBox {
-        return new BBox(this._x, this._y, this._x + this._calculatedWidth!, this._y + this._calculatedHeight!);
+        return new BBox(this._x_mm, this._y_mm, this._x_mm + this._calculated_width_mm!, this._y_mm + this._calculated_height_mm!);
     }
 
     render(info: RenderInfo) {
         this.initCtx(info);
         info.ctx.fillStyle = info.fg_color;
-        info.ctx.fillText(this._text, this._x, this._y);
+        info.ctx.fillText(this._text, this._x_mm * info.px_per_mm, this._y_mm * info.px_per_mm);
     }
 
     getText(): string {
@@ -132,6 +138,8 @@ export interface DesignSettings {
 
 export interface DesignInterface {
     add(element: DesignElement): void;
+
+    remove(id: number): void;
 
     elements(): DesignElement[];
 
@@ -160,29 +168,24 @@ export class Design implements DesignInterface {
         this._elements.push(element);
     }
 
+    remove(id: number): void {
+        let idx = this.binarySearch(id);
+        if (idx === null) {
+            throw new Error(`Element with ID ${id} not found`);
+        }
+        this._elements.splice(idx, 1);
+    }
+
     elements(): DesignElement[] {
         return this._elements;
     }
 
     get_element(id: number): DesignElement {
-        //binary search
-
-        let start = 0;
-        let end = this._elements.length - 1;
-
-        while (start <= end) {
-            let middle = Math.floor((start + end) / 2);
-
-            let middleElement = this._elements[middle];
-            if (middleElement.id() === id) {
-                return middleElement;
-            } else if (middleElement.id() < id) {
-                start = middle + 1;
-            } else {
-                end = middle - 1;
-            }
+        let idx = this.binarySearch(id);
+        if (idx === null) {
+            throw new Error(`Element with ID ${id} not found`);
         }
-        throw new Error(`Element with ID ${id} not found`);
+        return this._elements[idx];
     }
 
     settings(): DesignSettings {
@@ -193,5 +196,24 @@ export class Design implements DesignInterface {
         return this._elements.length > 0
             ? this._elements[this._elements.length - 1].id() + 1
             : 1;
+    }
+
+    private binarySearch(id: number): number | null {
+        let start = 0;
+        let end = this._elements.length - 1;
+
+        while (start <= end) {
+            let middle = Math.floor((start + end) / 2);
+
+            let middleElement = this._elements[middle];
+            if (middleElement.id() === id) {
+                return middle;
+            } else if (middleElement.id() < id) {
+                start = middle + 1;
+            } else {
+                end = middle - 1;
+            }
+        }
+        return null;
     }
 }

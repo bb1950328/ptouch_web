@@ -10,11 +10,23 @@
     </button>
     <ul class="dropdown-menu">
       <li><a class="dropdown-item" href="#" @click="showDeviceInfoDialog">Device Info</a></li>
-      <li><a class="dropdown-item" href="#" @click="connnectMockDevice">Connect Mock Device</a></li>
+      <li><a class="dropdown-item" href="#" @click="connectMockDevice">Connect Mock Device</a></li>
     </ul>
   </div>
 
   <Preview :design="design" :px_per_mm="8" :tape_width_mm="24" :tape_length_mm="1000" :selected_element_ids="selected_element_ids" @elementClicked="onElementClicked"/>
+
+  <div class="btn-toolbar gap-1" role="toolbar" aria-label="Actions Toolbar">
+    <div class="btn-group" role="group" aria-label="Add Element">
+      <button type="button" class="btn btn-primary">+ Text</button>
+      <button type="button" class="btn btn-primary">+ Image</button>
+    </div>
+
+    <div class="btn-group" role="group" aria-label="Actions">
+      <button type="button" class="btn btn-primary" :disabled="selected_element_ids.size==0" v-on:click="cloneSelectedElements">Clone</button>
+      <button type="button" class="btn btn-danger" :disabled="selected_element_ids.size==0" v-on:click="deleteSelectedElements">Delete</button>
+    </div>
+  </div>
 
   <DeviceInfoModal v-if="deviceInfoData!=null" ref="deviceInfoModal" :info="deviceInfoData"/>
 
@@ -132,23 +144,41 @@ export default {
     showDeviceInfoDialog() {
       (this.$refs.deviceInfoModal as typeof DeviceInfoModal).show();
     },
-    connnectMockDevice() {
+    connectMockDevice() {
       this.interf = new PTouchInterfaceMock();
       this.interf.connect();
     },
     onElementClicked(event: PreviewElementClickedEvent) {
-      if (event.ctrlPressed && event.element_id != null) {
-        if (this.selected_element_ids.has(event.element_id)) {
-          this.selected_element_ids.delete(event.element_id);
-        } else {
-          this.selected_element_ids.add(event.element_id);
+      if (event.ctrlPressed) {
+        if (event.element_id != null) {
+          if (this.selected_element_ids.has(event.element_id)) {
+            this.selected_element_ids.delete(event.element_id);
+          } else {
+            this.selected_element_ids.add(event.element_id);
+          }
         }
-      } else if (event.element_id != null && !this.selected_element_ids.has(event.element_id)) {
-        this.selected_element_ids.add(event.element_id);
       } else {
         this.selected_element_ids.clear();
+        if (event.element_id != null) {
+          this.selected_element_ids.add(event.element_id);
+        }
       }
-    }
+    },
+    cloneSelectedElements() {
+      let newIds = new Set<number>();
+      this.selected_element_ids.forEach(id => {
+        let original = this.design.get_element(id);
+        let nextId = this.design.nextId();
+        let clone = original.clone(nextId);
+        newIds.add(nextId);
+        this.design.add(clone);
+      });
+      this.selected_element_ids = newIds;
+    },
+    deleteSelectedElements() {
+      this.selected_element_ids.forEach(id => this.design.remove(id));
+      this.selected_element_ids.clear();
+    },
   },
 }
 </script>

@@ -78,7 +78,7 @@ export default {
         const element = this.design.get_element(id);
         const bbox = element.bbox();
         ctx.strokeStyle = "#0000ff";
-        ctx.strokeRect(bbox.x1(), bbox.y1(), bbox.width(), bbox.height());
+        ctx.strokeRect(bbox.x1() * this.px_per_mm, bbox.y1() * this.px_per_mm, bbox.width() * this.px_per_mm, bbox.height() * this.px_per_mm);
       })
     },
     onCanvasClicked(event: MouseEvent) {
@@ -87,9 +87,11 @@ export default {
         ctrlPressed: event.ctrlKey,
         shiftPressed: event.shiftKey,
       };
+      let click_x_mm = event.offsetX / this.px_per_mm;
+      let click_y_mm = event.offsetY / this.px_per_mm;
       for (let i = this.design.elements().length - 1; i >= 0; i--) {
         const element = this.design.elements()[i];
-        if (element.bbox().containsPoint(event.offsetX, event.offsetY)) {
+        if (element.bbox().containsPoint(click_x_mm, click_y_mm)) {
           elementEvent.element_id = element.id();
           break;
         }
