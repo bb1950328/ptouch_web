@@ -71,7 +71,7 @@ export default {
           newValue = 100;
         }
         newValue /= 100;
-        this.elements.forEach(e => e.setThreshold(newValue));
+        this.elementsMutable.forEach(e => e.setThreshold(newValue));
         this.emitElementsChanged();
       },
     },
@@ -105,6 +105,7 @@ export default {
       this.emitElementsChanged();
     },
     fileInputChanged(event: Event) {
+      this.$refs.imageUrlInput.value = "";
       const file = event.target.files[0];
       if (file) {
         const reader = new FileReader();
@@ -119,15 +120,19 @@ export default {
       }
     },
     urlInputChanged(event: Event) {
-      const image = new Image();
-      image.crossOrigin = "anonymous";
-      image.addEventListener("load", () => {
-        this.updateImage(image);
-      });
-      image.addEventListener("error", errorEvent => {
-        console.error(errorEvent);
-      });
-      image.src = (event.target as HTMLInputElement).value;
+      this.$refs.fileInput.value = null;
+      let url = (event.target as HTMLInputElement).value;
+      if (url) {
+        const image = new Image();
+        image.crossOrigin = "anonymous";
+        image.addEventListener("load", () => {
+          this.updateImage(image);
+        });
+        image.addEventListener("error", errorEvent => {
+          console.error(errorEvent);
+        });
+        image.src = url;
+      }
     },
   }
 };
