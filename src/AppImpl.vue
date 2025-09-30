@@ -14,7 +14,7 @@
     </ul>
   </div>
 
-  <Preview :design="design" :px_per_mm="8" :tape_width_mm="24"/>
+  <Preview :design="design" :px_per_mm="8" :tape_width_mm="24" :tape_length_mm="1000"/>
 
   <DeviceInfoModal v-if="deviceInfoData!=null" ref="deviceInfoModal" :info="deviceInfoData"/>
 
@@ -42,7 +42,7 @@ import {faGear} from "@fortawesome/free-solid-svg-icons";
 import {faUsb} from "@fortawesome/free-brands-svg-icons"
 import DeviceInfoModal from "@/components/device_info_modal/DeviceInfoModal.vue";
 
-import {DeviceInfoModalProps, PTouchDeviceStatusData,  PTouchDeviceTypeData, WebUSBInfoData } from "@/components/device_info_modal/prop_type";
+import {DeviceInfoModalProps, PTouchDeviceStatusData, PTouchDeviceTypeData, WebUSBInfoData} from "@/components/device_info_modal/prop_type";
 import {PTouchInterfaceMock} from "@/ptouch/mock_interface";
 import Preview from "@/components/preview/Preview.vue";
 import {Design, DesignElementText, DesignInterface} from "@/design";

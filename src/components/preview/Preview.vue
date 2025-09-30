@@ -1,17 +1,35 @@
 <template>
-  <canvas id="previewCanvas" width="100%" :height="tape_width_mm*px_per_mm" ref="canvasElement"></canvas>
+  <div class="preview-wrapper">
+    <div class="preview-fixed-left">
+      <div class="preview-ruler-v">
+        <RulerComponent :length_px="tape_width_mm*px_per_mm" direction="left" :pixel-per-mm="px_per_mm"/>
+      </div>
+    </div>
+    <div class="preview-scrolling">
+      <div class="preview-ruler-h">
+        <RulerComponent :length_px="tape_length_mm*px_per_mm" direction="top" :pixel-per-mm="px_per_mm"/>
+      </div>
+      <div class="preview-canvas">
+        <canvas id="previewCanvas" :width="tape_length_mm*px_per_mm" :height="tape_width_mm*px_per_mm" ref="canvasElement"></canvas>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script lang="ts">
 
 import {PropType} from "vue";
+import {DesignInterface} from "@/design";
+import RulerComponent from "@/components/preview/RulerComponent.vue";
 
 export default {
   name: "Preview",
+  components: {RulerComponent: RulerComponent},
   props: {
     design: {type: Object as PropType<DesignInterface>, required: true},
     px_per_mm: {type: Number, required: true},
     tape_width_mm: {type: Number, required: true},
+    tape_length_mm: {type: Number, required: true},
   },
   watch: {
     design: {
@@ -44,5 +62,26 @@ export default {
 </script>
 
 <style scoped>
+.preview-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+}
 
+.preview-fixed-left {
+  padding-right: 10px;
+}
+
+.preview-ruler-v {
+  margin-top: 40px;
+  align-self: end;
+}
+
+.preview-ruler-h {
+  height: 40px;
+}
+
+.preview-scrolling {
+  overflow-x: scroll;
+}
 </style>
