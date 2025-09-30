@@ -8,14 +8,20 @@
         </div>
         <div class="modal-body">
           <div v-if="info">
-            <h4>WebUSB</h4>
-            <WebUSBInfo :webusb="info.webusb"/>
+            <div v-if="info.webusb">
+              <h4>WebUSB</h4>
+              <WebUSBInfo :webusb="info.webusb"/>
+            </div>
 
-            <h4>P-Touch Device Type</h4>
-            <PTouchDeviceType :devType="info.devType"/>
+            <div v-if="info.devType">
+              <h4>P-Touch Device Type</h4>
+              <PTouchDeviceType :devType="info.devType"/>
+            </div>
 
-            <h4>P-Touch Device Status</h4>
-            <PTouchDeviceStatus :status="info.status"/>
+            <div v-if="info.status">
+              <h4>P-Touch Device Status</h4>
+              <PTouchDeviceStatus :status="info.status"/>
+            </div>
           </div>
         </div>
       </div>
@@ -29,8 +35,8 @@ import WebUSBInfo from './WebUSBInfo.vue';
 import PTouchDeviceType from './PTouchDeviceType.vue';
 import PTouchDeviceStatus from './PTouchDeviceStatus.vue';
 
-import {DeviceInfoModalProps} from "@/components/device_info_modal/prop_type";
 import {PropType} from "vue";
+import {DeviceInfoModalProps} from "@/components/device_info_modal/prop_type";
 
 export default {
   name: 'DeviceInfoModal',
@@ -38,13 +44,18 @@ export default {
     info: {type: Object as PropType<DeviceInfoModalProps>, required: false},
   },
   components: {WebUSBInfo, PTouchDeviceType, PTouchDeviceStatus},
+  data() {
+    return {
+      _modal: null as bootstrap.Modal | null,
+    }
+  },
   mounted() {
-    this._modal = bootstrap.Modal.getOrCreateInstance(this.$refs.modalEl);
+    this._modal = bootstrap.Modal.getOrCreateInstance(this.$refs.modalEl as HTMLDivElement);
   },
   methods: {
     show() {
       if (!this._modal) {
-        this._modal = bootstrap.Modal.getOrCreateInstance(this.$refs.modalEl);
+        this._modal = bootstrap.Modal.getOrCreateInstance(this.$refs.modalEl as HTMLDivElement);
       }
       this._modal.show();
     }

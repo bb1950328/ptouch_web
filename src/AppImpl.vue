@@ -1,5 +1,5 @@
 <template>
-  <button type="button" class="btn btn-primary" @click="deviceButtonClicked" :disabled="!interf.is_webusb_available()">
+  <button type="button" class="btn btn-primary" @click="deviceButtonClicked" :disabled="interf!=null && !interf.is_webusb_available()">
     <span v-if="!interf.is_connected()"><font-awesome-icon icon="fa-brands fa-usb"/>Connect</span>
     <span v-else>{{ interf.get_device_name() }}</span>
   </button>
@@ -10,8 +10,11 @@
     </button>
     <ul class="dropdown-menu">
       <li><a class="dropdown-item" href="#" @click="showDeviceInfoDialog">Device Info</a></li>
+      <li><a class="dropdown-item" href="#" @click="connnectMockDevice">Connect Mock Device</a></li>
     </ul>
   </div>
+
+  <Preview :design="design" :px_per_mm="8" :tape_width_mm="24"/>
 
   <DeviceInfoModal v-if="deviceInfoData!=null" ref="deviceInfoModal" :info="deviceInfoData"/>
 
@@ -31,7 +34,7 @@
 </template>
 
 <script lang="ts">
-import {PTouchInterface} from "@/ptouch/interface.js";
+import {PTouchInterface, PTouchInterfaceUSB} from "@/ptouch/interface"
 import * as bootstrap from 'bootstrap';
 import {FontAwesomeIcon} from "@fortawesome/vue-fontawesome";
 import {library} from "@fortawesome/fontawesome-svg-core"
@@ -39,24 +42,31 @@ import {faGear} from "@fortawesome/free-solid-svg-icons";
 import {faUsb} from "@fortawesome/free-brands-svg-icons"
 import DeviceInfoModal from "@/components/device_info_modal/DeviceInfoModal.vue";
 
-import {DeviceInfoModalProps} from "@/components/device_info_modal/prop_type"
+import {DeviceInfoModalProps, PTouchDeviceStatusData,  PTouchDeviceTypeData, WebUSBInfoData } from "@/components/device_info_modal/prop_type";
+import {PTouchInterfaceMock} from "@/ptouch/mock_interface";
+import Preview from "@/components/preview/Preview.vue";
+import {Design, DesignElementText, DesignInterface} from "@/design";
 
 library.add(faUsb, faGear);
 
 export default {
   name: 'AppImpl',
   components: {
+    Preview,
     'font-awesome-icon': FontAwesomeIcon,
     DeviceInfoModal,
   },
   data() {
     return {
-      interf: new PTouchInterface(),
+      interf: new PTouchInterfaceUSB() as PTouchInterface,
+      design: new Design() as DesignInterface,
     }
   },
   computed: {
     deviceInfoData(): DeviceInfoModalProps | null {
-      if (!this.interf.is_connected()) return null;
+      if (this.interf == null || !this.interf.is_connected()) {
+        return null;
+      }
       const w = this.interf.get_webusb_device();
       const devType = this.interf.get_ptouch_device_type();
       const st = this.interf.get_status();
@@ -64,32 +74,39 @@ export default {
         return null;
       }
       const activeMasks = Array.from(st.errors ?? []).map(e => e.mask);
+      let rWebusb: WebUSBInfoData | null = w == null
+          ? null
+          : {
+            vendorId: w.vendorId,
+            productId: w.productId,
+            manufacturerName: w.manufacturerName,
+            productName: w.productName,
+            serialNumber: w.serialNumber,
+            usbVersion: `${w.usbVersionMajor}.${w.usbVersionMinor}.${w.usbVersionSubminor}`,
+          };
+      let rDevType: PTouchDeviceTypeData | null = devType == null
+          ? null
+          : {
+            name: devType.name,
+            max_width_px: devType.max_width_px,
+            dpi: devType.dpi,
+          };
+      let rStatus: PTouchDeviceStatusData = {
+        model: st.model,
+        hw_setting: st.hw_setting,
+        media_type_name: st.media_type?.name ?? null,
+        media_width_mm: st.media_width_mm,
+        tape_color_name: st.tape_color?.name ?? null,
+        text_color_name: st.text_color?.name ?? null,
+        status_type_name: st.status_type?.name ?? null,
+        phase_description: st.phase?.description ?? null,
+        notification_description: st.notification?.description ?? null,
+        active_error_masks: activeMasks,
+      };
       return {
-        webusb: {
-          vendorId: w.vendorId,
-          productId: w.productId,
-          manufacturerName: w.manufacturerName,
-          productName: w.productName,
-          serialNumber: w.serialNumber,
-          usbVersion: `${w.usbVersionMajor}.${w.usbVersionMinor}.${w.usbVersionSubminor}`,
-        },
-        devType: {
-          name: devType.name,
-          max_width_px: devType.max_width_px,
-          dpi: devType.dpi,
-        },
-        status: {
-          model: st.model,
-          hw_setting: st.hw_setting,
-          media_type_name: st.media_type?.name ?? null,
-          media_width_mm: st.media_width_mm,
-          tape_color_name: st.tape_color?.name ?? null,
-          text_color_name: st.text_color?.name ?? null,
-          status_type_name: st.status_type?.name ?? null,
-          phase_description: st.phase?.description ?? null,
-          notification_description: st.notification?.description ?? null,
-          active_error_masks: activeMasks,
-        }
+        webusb: rWebusb,
+        devType: rDevType,
+        status: rStatus
       };
     }
   },
@@ -98,10 +115,12 @@ export default {
   },
   async mounted() {
     if (!this.interf.is_webusb_available()) {
-      let toast = document.getElementById("errorNoWebUSB");
+      let toast = document.getElementById("errorNoWebUSB")!;
       let t = bootstrap.Toast.getOrCreateInstance(toast);
       t.show();
     }
+
+    this.design.add(new DesignElementText("Hello World", 10, 10, 3));
   },
   methods: {
     async deviceButtonClicked() {
@@ -109,7 +128,11 @@ export default {
       await this.interf.connect();
     },
     showDeviceInfoDialog() {
-      this.$refs.deviceInfoModal?.show();
+      (this.$refs.deviceInfoModal as typeof DeviceInfoModal).show();
+    },
+    connnectMockDevice() {
+      this.interf = new PTouchInterfaceMock();
+      this.interf.connect();
     }
   },
 }

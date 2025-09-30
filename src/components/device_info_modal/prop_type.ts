@@ -1,9 +1,9 @@
 export interface WebUSBInfoData {
     vendorId: number;
     productId: number;
-    manufacturerName?: string;
-    productName?: string;
-    serialNumber?: string;
+    manufacturerName: string|null;
+    productName: string|null;
+    serialNumber: string|null;
     usbVersion: string;
 }
 
@@ -23,10 +23,11 @@ export interface PTouchDeviceStatusData {
     status_type_name: string | null;
     phase_description: string | null;
     notification_description: string | null;
+    active_error_masks: number[];
 }
 
 export interface DeviceInfoModalProps {
-    webusb: WebUSBInfoData;
-    devType: PTouchDeviceTypeData;
-    status: PTouchDeviceStatusData;
+    webusb: WebUSBInfoData|null;
+    devType: PTouchDeviceTypeData|null;
+    status: PTouchDeviceStatusData|null;
 }

@@ -33,8 +33,8 @@ export interface PTouchDeviceType {
 }
 
 export interface PTouchErrorInformation {
-    mask: number,
-    description: string,
+    mask: number;
+    description: string;
 }
 
 export interface PTouchPhase {
@@ -97,8 +97,60 @@ export interface PTouchStatusType {
     name: string,
 }
 
+function findInstance<T extends {[key: string]: any}>(all: T[], filter: {[key: string]: any}): T|null {
+    for (const i of all) {
+        let ok = true;
+        for (const k of Object.keys(filter)) {
+            if (i[k] != filter[k]) {
+                ok=false;
+                break
+            }
+        }
+        if (ok) {
+            return i;
+        }
+    }
+    return null;
+}
+
+export function findTapeInfo(width_mm: number): PTouchTapeInfo|null {
+    return findInstance(PTOUCH_TAPE_INFOS, {width_mm: width_mm});
+}
+
+export function findMediaType(code: number): PTouchMediaType|null {
+    return findInstance(PTOUCH_MEDIA_TYPES, {code: code});
+}
+
+export function findTapeColor(code: number): PTouchTapeColor|null {
+    return findInstance(PTOUCH_TAPE_COLORS, {code: code});
+}
+
+export function findTextColor(code: number): PTouchTextColor|null {
+    return findInstance(PTOUCH_TEXT_COLORS, {code: code});
+}
+
+export function findDeviceType(usb_vendor_id: number, usb_product_id: number): PTouchDeviceType|null {
+    return findInstance(PTOUCH_DEVICE_TYPES, {usb_vendor_id: usb_vendor_id, usb_product_id: usb_product_id});
+}
+
+export function findErrorInformation(mask: number): PTouchErrorInformation|null {
+    return findInstance(PTOUCH_ERROR_INFORMATIONS, {mask: mask});
+}
+
+export function findStatusType(code: number): PTouchStatusType|null {
+    return findInstance(PTOUCH_STATUS_TYPES, {code: code});
+}
+
+export function findPhase(type: number, number_h: number, number_l: number): PTouchPhase|null {
+    return findInstance(PTOUCH_PHASES, {type: type, number_h: number_h, number_l: number_l});
+}
+
+export function findNotification(code: number): PTouchNotification|null {
+    return findInstance(PTOUCH_NOTIFICATIONS, {code: code});
+}
+
 //@formatter:off
-export const PTOUCH_TAPE_TYPES: PTouchTapeInfo[] = [
+export const PTOUCH_TAPE_INFOS: PTouchTapeInfo[] = [
     {width_mm: 4, width_px: 24, margins_mm: 0.5},
     {width_mm: 6, width_px: 32, margins_mm: 1.0},
     {width_mm: 9, width_px: 52, margins_mm: 1.0},
