@@ -1,4 +1,6 @@
 import {hexToRgb} from "@/util";
+import {IconDefinition} from "@fortawesome/fontawesome-svg-core";
+import {faFont, faGear, faImage, faStar} from "@fortawesome/free-solid-svg-icons";
 
 export class BBox {
     private readonly _x1: number;
@@ -459,5 +461,115 @@ export class Design implements DesignInterface {
             }
         }
         return null;
+    }
+}
+
+
+export class DesignElementIcon implements DesignElement {
+    private readonly _id: number;
+    private _icon_name: string;
+    private _x_mm: number;
+    private _y_mm: number;
+    private _size_mm: number;
+
+    private _calculated_width_mm: number | null = null;
+    private _path: Path2D | null = null;
+
+    // todo support all icons
+    private static readonly _icons: Record<string, IconDefinition> = {
+        star: faStar,
+        gear: faGear,
+        image: faImage,
+        font: faFont,
+    };
+
+    constructor(id: number, icon_name: string, x_mm: number, y_mm: number, size_mm: number) {
+        this._id = id;
+        this._icon_name = icon_name;
+        this._x_mm = x_mm;
+        this._y_mm = y_mm;
+        this._size_mm = size_mm;
+    }
+
+    clone(): this {
+        return new DesignElementIcon(this._id, this._icon_name, this._x_mm, this._y_mm, this._size_mm) as this;
+    }
+
+    duplicate(newId: number, x1_mm: number): this {
+        return new DesignElementIcon(newId, this._icon_name, x1_mm, this._y_mm, this._size_mm) as this;
+    }
+
+    id(): number {
+        return this._id;
+    }
+
+    bbox(): BBox {
+        const w = this._calculated_width_mm ?? this._size_mm; // fallback square
+        return new BBox(this._x_mm, this._y_mm, this._x_mm + w, this._y_mm + this._size_mm);
+    }
+
+    update(info: UpdateInfo): void {
+        const def = this.getIconDef();
+        if (!def) {
+            this._calculated_width_mm = this._size_mm;
+            this._path = null;
+            return;
+        }
+        const width = def.icon[0];
+        const height = def.icon[1];
+        const svgPathData = def.icon[4];
+
+        this._calculated_width_mm = this._size_mm * (width / height);
+
+        // Build a combined Path2D from svgPathData
+        if (typeof svgPathData === 'string') {
+            this._path = new Path2D(svgPathData);
+        } else {
+            const p = new Path2D();
+            for (const d of svgPathData) {
+                p.addPath(new Path2D(d));
+            }
+            this._path = p;
+        }
+    }
+
+    render(info: RenderInfo): void {
+        const def = this.getIconDef();
+        if (!def || !this._path) {
+            return;
+        }
+        const height = def.icon[1];
+        const scale = (this._size_mm * info.px_per_mm) / height;
+
+        info.ctx.save();
+        info.ctx.translate(this._x_mm * info.px_per_mm, this._y_mm * info.px_per_mm);
+        info.ctx.scale(scale, scale);
+        info.ctx.fillStyle = info.fg_color;
+        info.ctx.fill(this._path);
+        info.ctx.restore();
+    }
+
+    private getIconDef(): IconDefinition | null {
+        return DesignElementIcon._icons[this._icon_name] ?? null;
+    }
+
+    getIconName(): string {
+        return this._icon_name;
+    }
+
+    setIconName(name: string) {
+        if (this._icon_name !== name) {
+            this._icon_name = name;
+            // Force recalculation on next update
+            this._path = null;
+        }
+    }
+
+    getSizeMM(): number {
+        return this._size_mm;
+    }
+
+    setSizeMM(size_mm: number) {
+        this._size_mm = size_mm;
     }
 }

@@ -26,6 +26,10 @@
         <font-awesome-icon icon="fa-solid fa-image"/>
         Image
       </button>
+      <button type="button" class="btn btn-primary" v-on:click="addElementIcon">
+        <font-awesome-icon icon="fa-solid fa-star"/>
+        Icon
+      </button>
     </div>
 
     <div class="btn-group" role="group" aria-label="Actions">
@@ -47,6 +51,7 @@
       <div v-else>
         <EditorText v-if="shown_editor_types.has('text')" :elements="selected_elements as DesignElementText[]" @elementsChanged="editorElementsChanged"/>
         <EditorImage v-if="shown_editor_types.has('image')" :elements="selected_elements as DesignElementImage[]" @elementsChanged="editorElementsChanged"/>
+        <EditorIcon v-if="shown_editor_types.has('icon')" :elements="selected_elements as DesignElementIcon[]" @elementsChanged="editorElementsChanged"/>
       </div>
     </div>
   </div>
@@ -73,18 +78,20 @@ import {PTouchInterface, PTouchInterfaceUSB} from "@/ptouch/interface"
 import * as bootstrap from 'bootstrap';
 import {FontAwesomeIcon} from "@fortawesome/vue-fontawesome";
 import {library} from "@fortawesome/fontawesome-svg-core"
-import {faClone, faFont, faGear, faImage, faTrashCan} from "@fortawesome/free-solid-svg-icons";
+import {faClone, faFont, faGear, faImage, faStar, faTrashCan} from "@fortawesome/free-solid-svg-icons";
 import {faUsb} from "@fortawesome/free-brands-svg-icons"
 import DeviceInfoModal from "@/components/device_info_modal/DeviceInfoModal.vue";
+import type {EditorType} from "@/components/editor/editor";
 
 import {DeviceInfoModalProps, PTouchDeviceStatusData, PTouchDeviceTypeData, WebUSBInfoData} from "@/components/device_info_modal/prop_type";
 import {PTouchInterfaceMock} from "@/ptouch/mock_interface";
 import Preview, {PreviewElementClickedEvent} from "@/components/preview/Preview.vue";
-import {Design, DesignElement, DesignElementImage, DesignElementText, DesignInterface} from "@/design";
+import {Design, DesignElement, DesignElementIcon, DesignElementImage, DesignElementText, DesignInterface} from "@/design";
 import EditorText from "@/components/editor/EditorText.vue";
 import EditorImage from "@/components/editor/EditorImage.vue";
+import EditorIcon from "@/components/editor/EditorIcon.vue";
 
-library.add(faUsb, faGear, faFont, faImage, faClone, faTrashCan);
+library.add(faUsb, faGear, faFont, faImage, faClone, faTrashCan, faStar);
 
 export default {
   name: 'AppImpl',
@@ -94,6 +101,7 @@ export default {
     Preview,
     'font-awesome-icon': FontAwesomeIcon,
     DeviceInfoModal,
+    EditorIcon,
   },
   data() {
     return {
@@ -158,7 +166,7 @@ export default {
       return result;
     },
     shown_editor_types(): Set<EditorType> {
-      let result = new Set<EditorType>(["text", "image"]);
+      let result = new Set<EditorType>(["text", "image", "icon"]);
       if (this.selected_element_ids.size == 0) {
         result.clear();
       } else {
@@ -169,6 +177,9 @@ export default {
           }
           if (!(element instanceof DesignElementImage)) {
             result.delete("image");
+          }
+          if (!(element instanceof DesignElementIcon)) {
+            result.delete("icon");
           }
         });
       }
@@ -246,6 +257,19 @@ export default {
           true,
           false,
           0.5,
+      );
+      this.design.add(element);
+      this.selected_element_ids.clear();
+      this.selected_element_ids.add(element.id());
+    },
+    addElementIcon() {
+      let tapeWidth = this.interf.get_status().media_width_mm;
+      let element = new DesignElementIcon(
+          this.design.nextId(),
+          'star',
+          this.design.rightEndMM(),
+          tapeWidth / 4,
+          tapeWidth / 2
       );
       this.design.add(element);
       this.selected_element_ids.clear();

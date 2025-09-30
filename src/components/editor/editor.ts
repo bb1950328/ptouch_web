@@ -1,4 +1,4 @@
-export type EditorType = "text" | "image";
+export type EditorType = "text" | "image" | "icon";
 
 export function getSingleValue<T>(elements: E[], getter: (element: E) => T, defaultValue: T): T {
     let singleValue: T = getter(elements[0]);
