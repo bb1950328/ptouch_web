@@ -105,8 +105,8 @@ export default {
       this.emitElementsChanged();
     },
     fileInputChanged(event: Event) {
-      this.$refs.imageUrlInput.value = "";
-      const file = event.target.files[0];
+      (this.$refs.imageUrlInput as HTMLInputElement).value = "";
+      const file = (event.target as HTMLInputElement)!.files?.item(0);
       if (file) {
         const reader = new FileReader();
         reader.addEventListener("load", readerEvent => {
@@ -120,7 +120,7 @@ export default {
       }
     },
     urlInputChanged(event: Event) {
-      this.$refs.fileInput.value = null;
+      (this.$refs.fileInput as HTMLInputElement).value = "";
       let url = (event.target as HTMLInputElement).value;
       if (url) {
         const image = new Image();
