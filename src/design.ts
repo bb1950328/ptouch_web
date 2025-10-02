@@ -58,6 +58,14 @@ export interface DesignElement {
     duplicate(newId: number, x1_mm: number): this;
 }
 
+export interface MovableDesignElement extends DesignElement {
+    /**Returns current anchor coordinates in millimeters*/
+    getAnchor(): [number, number];
+
+    /**Moves the element so that its anchor is set to the given coordinates (in millimeters)*/
+    moveAnchor(x: number, y: number): void;
+}
+
 export interface BaseInfo {
     ctx: CanvasRenderingContext2D;
     px_per_mm: number;
@@ -71,7 +79,7 @@ export interface RenderInfo extends BaseInfo {
     bg_color: string;
 }
 
-export class DesignElementText implements DesignElement {
+export class DesignElementText implements MovableDesignElement {
     private readonly _id: number;
     private _text: string;
     private _x_mm: number;
@@ -140,9 +148,18 @@ export class DesignElementText implements DesignElement {
     setFontSize(size: number) {
         this._size_mm = size;
     }
+
+    getAnchor(): [number, number] {
+        return [this._x_mm, this._y_mm];
+    }
+
+    moveAnchor(x: number, y: number): void {
+        this._x_mm = x;
+        this._y_mm = y;
+    }
 }
 
-export class DesignElementImage implements DesignElement {
+export class DesignElementImage implements MovableDesignElement {
     private readonly _id: number;
     private _image: HTMLImageElement | null;
     private _x_mm: number;
@@ -218,7 +235,7 @@ export class DesignElementImage implements DesignElement {
     render(info: RenderInfo): void {
         this.processImage(info);
         if (DesignElementImage._processed_images.has(this._id)) {
-            info.ctx.putImageData(DesignElementImage._processed_images.get(this._id), this._x_mm * info.px_per_mm, this._y_mm * info.px_per_mm);
+            info.ctx.putImageData(DesignElementImage._processed_images.get(this._id)!, this._x_mm * info.px_per_mm, this._y_mm * info.px_per_mm);
         } else {
             //todo draw something else instead so that the element is visible
             //info.ctx.fillStyle = info.fg_color;
@@ -355,6 +372,15 @@ export class DesignElementImage implements DesignElement {
     private clearProcessedImage() {
         DesignElementImage._processed_images.delete(this._id);
     }
+
+    getAnchor(): [number, number] {
+        return [this._x_mm, this._y_mm];
+    }
+
+    moveAnchor(x: number, y: number): void {
+        this._x_mm = x;
+        this._y_mm = y;
+    }
 }
 
 export interface DesignSettings {
@@ -465,7 +491,7 @@ export class Design implements DesignInterface {
 }
 
 
-export class DesignElementIcon implements DesignElement {
+export class DesignElementIcon implements MovableDesignElement {
     private readonly _id: number;
     private _icon_name: string;
     private _x_mm: number;
@@ -558,5 +584,14 @@ export class DesignElementIcon implements DesignElement {
 
     setSizeMM(size_mm: number) {
         this._size_mm = size_mm;
+    }
+
+    getAnchor(): [number, number] {
+        return [this._x_mm, this._y_mm];
+    }
+
+    moveAnchor(x: number, y: number): void {
+        this._x_mm = x;
+        this._y_mm = y;
     }
 }

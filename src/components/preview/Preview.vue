@@ -10,7 +10,13 @@
         <RulerComponent :length_px="tape_length_mm*px_per_mm" direction="top" :pixel-per-mm="px_per_mm"/>
       </div>
       <div class="preview-canvas">
-        <canvas id="previewCanvas" :width="tape_length_mm*px_per_mm" :height="tape_width_mm*px_per_mm" ref="canvasElement" v-on:click="onCanvasClicked"></canvas>
+        <canvas id="previewCanvas"
+                :width="tape_length_mm*px_per_mm"
+                :height="tape_width_mm*px_per_mm"
+                ref="canvasElement"
+                @mousedown="onMouseDown"
+                @mousemove="onMouseMove"
+                @mouseup="onMouseUp"></canvas>
       </div>
     </div>
   </div>
@@ -19,7 +25,7 @@
 <script lang="ts">
 
 import {PropType} from "vue";
-import {DesignInterface} from "@/design";
+import {DesignElement, DesignInterface, MovableDesignElement} from "@/design";
 import RulerComponent from "@/components/preview/RulerComponent.vue";
 
 export interface PreviewElementClickedEvent {
@@ -42,6 +48,9 @@ export default {
     elementClicked(payload: PreviewElementClickedEvent): boolean {
       return true;
     },
+    elementsChanged(elements: DesignElement[]): boolean {
+      return true;
+    },
   },
   watch: {
     design: {
@@ -57,60 +66,162 @@ export default {
       deep: true,
     }
   },
+  data() {
+    return {
+      drag: {
+        isDragging: false,
+        startXMM: 0,
+        startYMM: 0,
+        dxMM: 0,
+        dyMM: 0,
+        initialAnchors: new Map<number, [number, number]>(),
+        dragCopies: new Map<number, MovableDesignElement>(),
+        justDragged: false,
+      }
+    };
+  },
   mounted(): any {
     this.renderCanvas();
   },
   methods: {
     renderCanvas() {
-      //todo
       let fgColor = "#000000";
       let bgColor = "#ffffff";
 
-      let canvas = this.$refs.canvasElement as HTMLCanvasElement;
-      let ctx = canvas.getContext("2d")!;
+      const canvas = this.$refs.canvasElement as HTMLCanvasElement;
+      const ctx = canvas.getContext("2d")!;
       ctx.fillStyle = fgColor;
       ctx.strokeStyle = fgColor;
-      this.design.elements().forEach(e => {
+
+      const elementsToRender: DesignElement[] = this.design.elements().map(e => {
+        const dragCopy = this.drag.dragCopies?.get(e.id());
+        return dragCopy ?? e;
+      });
+
+      // Update metrics for all
+      elementsToRender.forEach(e => {
         ctx.save();
         e.update({ctx: ctx, px_per_mm: this.px_per_mm});
         ctx.restore();
       });
 
+      // Clear background
       ctx.save();
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.restore();
 
-      this.design.elements().forEach(e => {
+      // Render elements in order
+      elementsToRender.forEach(e => {
         ctx.save();
         e.render({ctx: ctx, px_per_mm: this.px_per_mm, fg_color: fgColor, bg_color: bgColor});
         ctx.restore();
       });
+
+      // Draw selection rectangles (use dragged copy if exists)
       ctx.save();
       this.selected_element_ids.forEach(id => {
-        const element = this.design.get_element(id);
+        const dragCopy = this.drag.dragCopies?.get(id);
+        const element = dragCopy ?? this.design.get_element(id);
         const bbox = element.bbox();
         ctx.strokeStyle = "#0000ff";
         ctx.strokeRect(bbox.x1() * this.px_per_mm, bbox.y1() * this.px_per_mm, bbox.width() * this.px_per_mm, bbox.height() * this.px_per_mm);
       });
       ctx.restore();
     },
-    onCanvasClicked(event: MouseEvent) {
-      let elementEvent: PreviewElementClickedEvent = {
-        element_id: null,
-        ctrlPressed: event.ctrlKey,
-        shiftPressed: event.shiftKey,
-      };
-      let click_x_mm = event.offsetX / this.px_per_mm;
-      let click_y_mm = event.offsetY / this.px_per_mm;
+    onMouseDown(event: MouseEvent) {
+      const xMM = event.offsetX / this.px_per_mm;
+      const yMM = event.offsetY / this.px_per_mm;
+
+      let hitId: number | null = null;
       for (let i = this.design.elements().length - 1; i >= 0; i--) {
-        const element = this.design.elements()[i];
-        if (element.bbox().containsPoint(click_x_mm, click_y_mm)) {
-          elementEvent.element_id = element.id();
+        const el = this.design.elements()[i];
+        if (el.bbox().containsPoint(xMM, yMM)) {
+          hitId = el.id();
           break;
         }
       }
-      this.$emit("elementClicked", elementEvent);
+
+      if (hitId == null) {
+        return;
+      }
+
+      if (!this.selected_element_ids.has(hitId)) {
+        // Not part of selection: defer to click selection behavior
+        return;
+      }
+
+      // Start dragging
+      this.drag.isDragging = true;
+      this.drag.startXMM = xMM;
+      this.drag.startYMM = yMM;
+      this.drag.dxMM = 0;
+      this.drag.dyMM = 0;
+      this.drag.initialAnchors = new Map<number, [number, number]>();
+      this.drag.dragCopies = new Map<number, MovableDesignElement>();
+
+      this.selected_element_ids.forEach((id: number) => {
+        const original = this.design.get_element(id) as MovableDesignElement;//todo check if it is really movable
+        const [ax, ay] = original.getAnchor();
+        this.drag.initialAnchors.set(id, [ax, ay]);
+        const copy = original.clone();
+        this.drag.dragCopies.set(id, copy);
+      });
+
+      event.preventDefault();
+    },
+    onMouseMove(event: MouseEvent) {
+      if (!this.drag.isDragging) return;
+      const xMM = event.offsetX / this.px_per_mm;
+      const yMM = event.offsetY / this.px_per_mm;
+      this.drag.dxMM = xMM - this.drag.startXMM;
+      this.drag.dyMM = yMM - this.drag.startYMM;
+
+      this.drag.dragCopies.forEach((copy: MovableDesignElement, id: number) => {
+        const anchor = this.drag.initialAnchors.get(id)!;
+        copy.moveAnchor(anchor[0] + this.drag.dxMM, anchor[1] + this.drag.dyMM);
+      });
+
+      this.renderCanvas();
+    },
+    onMouseUp(event: MouseEvent) {
+      const xMM = event.offsetX / this.px_per_mm;
+      const yMM = event.offsetY / this.px_per_mm;
+      if (!this.drag.isDragging) {
+        let elementEvent: PreviewElementClickedEvent = {
+          element_id: null,
+          ctrlPressed: event.ctrlKey,
+          shiftPressed: event.shiftKey,
+        };
+        for (let i = this.design.elements().length - 1; i >= 0; i--) {
+          const element = this.design.elements()[i];
+          if (element.bbox().containsPoint(xMM, yMM)) {
+            elementEvent.element_id = element.id();
+            break;
+          }
+        }
+        this.$emit("elementClicked", elementEvent);
+      } else {
+        const dx = xMM - this.drag.startXMM;
+        const dy = yMM - this.drag.startYMM;
+
+        const updated: DesignElement[] = [];
+        this.selected_element_ids.forEach((id: number) => {
+          const original = this.design.get_element(id) as MovableDesignElement;
+          const [ax0, ay0] = this.drag.initialAnchors.get(id)!;
+          original.moveAnchor(ax0 + dx, ay0 + dy);
+          updated.push(original);
+        });
+
+        this.drag.isDragging = false;
+        this.drag.dragCopies.clear();
+        this.drag.initialAnchors.clear();
+        this.renderCanvas();
+
+        this.drag.justDragged = true;
+
+        this.$emit("elementsChanged", updated);
+      }
     }
   }
 }

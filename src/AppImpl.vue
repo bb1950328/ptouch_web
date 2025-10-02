@@ -14,7 +14,8 @@
     </ul>
   </div>
 
-  <Preview :design="design" :px_per_mm="8" :tape_width_mm="24" :tape_length_mm="1000" :selected_element_ids="selected_element_ids" @elementClicked="onElementClicked"/>
+  <Preview :design="design" :px_per_mm="8" :tape_width_mm="24" :tape_length_mm="1000" :selected_element_ids="selected_element_ids" @elementClicked="onElementClicked"
+           @elementsChanged="editorElementsChanged"/>
 
   <div class="btn-toolbar gap-1 mt-2 mb-2" role="toolbar" aria-label="Actions Toolbar">
     <div class="btn-group" role="group" aria-label="Add Element">
