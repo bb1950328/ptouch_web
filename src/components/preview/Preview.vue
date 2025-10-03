@@ -42,6 +42,7 @@ export default {
     selected_element_ids: {type: Set as PropType<Set<number>>, required: true},
     px_per_mm: {type: Number, required: true},
     tape_width_mm: {type: Number, required: true},
+    tape_margin_mm: {type: Number, required: true},
     tape_length_mm: {type: Number, required: true},
   },
   emits: {
@@ -109,6 +110,20 @@ export default {
       ctx.save();
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+
+      // Draw margins
+      ctx.save();
+      ctx.strokeStyle = "#f0f";
+      ctx.setLineDash([10, 5, 2, 5]);
+      ctx.beginPath();
+      let margin1_y = this.px_per_mm * this.tape_margin_mm;
+      let margin2_y = canvas.height - this.px_per_mm * this.tape_margin_mm;
+      ctx.moveTo(0, margin1_y);
+      ctx.lineTo(canvas.width, margin1_y);
+      ctx.moveTo(0, margin2_y);
+      ctx.lineTo(canvas.width, margin2_y);
+      ctx.stroke();
       ctx.restore();
 
       // Render elements in order

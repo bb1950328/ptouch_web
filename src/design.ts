@@ -79,6 +79,11 @@ export interface RenderInfo extends BaseInfo {
     bg_color: string;
 }
 
+export interface PrintInfo extends BaseInfo {
+    canvas: HTMLCanvasElement;
+    tape_width_mm: number;
+}
+
 export class DesignElementText implements MovableDesignElement {
     private readonly _id: number;
     private _text: string;
@@ -403,6 +408,8 @@ export interface DesignInterface {
     nextId(): number;
 
     rightEndMM(): number;
+
+    renderToPrint(info: PrintInfo): void;
 }
 
 export class Design implements DesignInterface {
@@ -470,6 +477,28 @@ export class Design implements DesignInterface {
             }
         }
         return right;
+    }
+
+    renderToPrint(info: PrintInfo): void {
+        info.canvas.height = info.tape_width_mm * info.px_per_mm;
+        info.canvas.width = this.rightEndMM() * info.px_per_mm;
+
+        for (let el of this._elements) {
+            info.ctx.save();
+            el.update({ctx: info.ctx, px_per_mm: info.px_per_mm});
+            info.ctx.restore();
+        }
+
+        info.ctx.save();
+        info.ctx.fillStyle = "#ffffff";
+        info.ctx.fillRect(0, 0, info.canvas.width, info.canvas.height);
+        info.ctx.restore();
+
+        for (let el of this._elements) {
+            info.ctx.save();
+            el.render({ctx: info.ctx, px_per_mm: info.px_per_mm, bg_color: "#ffffff", fg_color: "#000000"});
+            info.ctx.restore();
+        }
     }
 
     private binarySearch(id: number): number | null {

@@ -5,13 +5,21 @@
            :tape_width_mm="interf.get_status()?.media_width_mm"
            :tape_tape_color="interf.get_status()?.tape_color"
            :tape_text_color="interf.get_status()?.text_color"
+           :print_enabled="design.elements().length>0"
            @connectPrinter="connectButtonClicked"
            @disconnectPrinter="disconnectButtonClicked"
            @connectMockPrinter="connectMockDevice"
-           @showPrinterInfo="showDeviceInfoDialog"/>
+           @showPrinterInfo="showDeviceInfoDialog"
+           @print="printDesign"/>
 
-  <main>
-    <Preview :design="design" :px_per_mm="8" :tape_width_mm="24" :tape_length_mm="1000" :selected_element_ids="selected_element_ids" @elementClicked="onElementClicked"
+  <main v-if="interf.is_connected()">
+    <Preview :design="design"
+             :px_per_mm="pxPerMM"
+             :tape_width_mm="tape_info?.width_mm"
+             :tape_margin_mm="tape_info?.margins_mm"
+             :tape_length_mm="1000"
+             :selected_element_ids="selected_element_ids"
+             @elementClicked="onElementClicked"
              @elementsChanged="editorElementsChanged"/>
 
     <div class="btn-toolbar gap-1 mt-2 mb-2" role="toolbar" aria-label="Actions Toolbar">
@@ -104,6 +112,7 @@ import EditorText from "@/components/editor/EditorText.vue";
 import EditorImage from "@/components/editor/EditorImage.vue";
 import EditorIcon from "@/components/editor/EditorIcon.vue";
 import Toolbar from "@/components/toolbar/Toolbar.vue";
+import {findTapeInfo, PTouchTapeInfo} from "@/ptouch/data";
 
 library.add(faUsb, faGear, faFont, faImage, faClone, faTrashCan, faStar);
 
@@ -127,6 +136,17 @@ export default {
     }
   },
   computed: {
+    pxPerMM(): number | null {
+      const tapeInfo = this.tape_info;
+      if (tapeInfo != null) {
+        return tapeInfo.width_px / (tapeInfo.width_mm - 2 * tapeInfo.margins_mm);
+      }
+      return null;
+    },
+    tape_info(): PTouchTapeInfo | null {
+      const tapeWidth = this.interf.get_status()?.media_width_mm;
+      return tapeWidth != null ? findTapeInfo(tapeWidth) : null;
+    },
     deviceInfoData(): DeviceInfoModalProps | null {
       if (this.interf == null || !this.interf.is_connected()) {
         return null;
@@ -212,6 +232,7 @@ export default {
     }
   },
   methods: {
+    findTapeInfo,
     async connectButtonClicked() {
       console.log("deviceButtonClicked");
       try {
@@ -307,7 +328,14 @@ export default {
     },
     editorElementsChanged(newElements: DesignElement[]) {
       newElements.forEach(e => this.design.replace(e));
-    }
+    },
+    printDesign() {
+      console.log("print");
+      let printCanvas = document.createElement("canvas") as HTMLCanvasElement;
+      let printCtx = printCanvas.getContext("2d", {willReadFrequently: true})!;
+      this.design.renderToPrint({ctx: printCtx, px_per_mm: this.pxPerMM, canvas: printCanvas, tape_width_mm: this.tape_info!.width_mm});
+      this.interf.print(printCanvas, false);
+    },
   },
 }
 </script>

@@ -84,4 +84,11 @@ export class PTouchInterfaceMock implements PTouchInterface {
             throw new Error("Not connected");
         }
     }
+
+    async print(canvas: HTMLCanvasElement, chain: boolean) {
+        let link = document.createElement("a");
+        link.download = "label.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+    }
 }

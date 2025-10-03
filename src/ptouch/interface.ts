@@ -4,6 +4,7 @@ import {
     findPhase,
     findStatusType,
     findTapeColor,
+    findTapeInfo,
     findTextColor,
     PTOUCH_DEVICE_TYPES,
     PTOUCH_ERROR_INFORMATIONS,
@@ -46,6 +47,8 @@ export interface PTouchInterface {
     require_connected(): void;
 
     is_mock(): boolean;
+
+    print(canvas: HTMLCanvasElement, chain: boolean): Promise<void>;
 }
 
 export class PTouchInterfaceUSB implements PTouchInterface {
@@ -363,5 +366,57 @@ export class PTouchInterfaceUSB implements PTouchInterface {
         if (!this.device) {
             throw new Error("Not connected");
         }
+    }
+
+    private rasterline_setpixel(rasterline: Uint8Array, pixel: number) {
+        //const size = rasterline.length;
+        //rasterline[(size-1)-Math.floor(pixel/8)] |= 1 << (pixel%8);
+        let byte = Math.floor(pixel / 8);
+        let bit = pixel % 8;
+        rasterline[byte] |= 1 << (7 - bit);
+    }
+
+    async print(canvas: HTMLCanvasElement, chain: boolean) {
+        const tapeInfo = findTapeInfo(this.deviceStatus!.media_width_mm)!;
+        const tapeWidth = tapeInfo.width_px
+        const maxPixels = this.deviceType!.max_width_px;
+
+        const offset = Math.round((maxPixels / 2) - (canvas.height / 2));
+
+        if (this.deviceType!.flags.has(PTouchDeviceTypeFlags.RASTER_PACKBITS)) {
+            await this.enable_packbits();
+        }
+        await this.rasterstart();
+
+        if (this.deviceType!.flags.has(PTouchDeviceTypeFlags.USE_INFO_CMD)) {
+            await this.info_cmd(canvas.width);
+        }
+        if (this.deviceType!.flags.has(PTouchDeviceTypeFlags.D460BT_MAGIC)) {
+            if (chain) {
+                await this.send_d460bt_chain();
+            }
+            await this.send_d460bt_magic();
+        }
+        if (this.deviceType!.flags.has(PTouchDeviceTypeFlags.HAS_PRECUT)) {
+            await this.send_precut_cmd(true);
+        }
+
+        const ctx = canvas.getContext("2d")!;
+
+        const rasterline = new Uint8Array(this.deviceType!.max_width_px / 8);
+        for (let x = 0; x < canvas.width; x++) {
+            const imgData = ctx.getImageData(x, 0, 1, canvas.height);
+            rasterline.fill(0);
+
+            for (let y = 0; y < canvas.height; y++) {
+                const pixel_red = imgData.data[y * 4];
+                if (pixel_red == 0) {
+                    this.rasterline_setpixel(rasterline, offset + y);
+                }
+            }
+
+            await this.sendraster(rasterline);
+        }
+        await this.finalize(chain);
     }
 }

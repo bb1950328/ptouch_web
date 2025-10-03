@@ -19,23 +19,29 @@
         Connect
       </button>
     </div>
-    <span class="separator"></span>
-    <div v-if="printer_connection_status!='disconnected'" class="section" id="section-tape">
-      <font-awesome-icon icon="fa-solid fa-tape"/>
-      <span v-if="tape_media_type">
-        {{ tape_media_type.name }},
-      </span>
-      <span v-if="tape_tape_color" :style="{color: tape_tape_color.color_on_black}">
-        {{ tape_tape_color.name }} Text
-      </span>
-      <span>on</span>
-      <span v-if="tape_text_color" class="badge" :style="{backgroundColor: tape_text_color.color_on_black, color: 'black'}">
-        {{ tape_text_color.name }}
-      </span>
-      <span>
-        {{ tape_width_mm }}mm
-      </span>
-    </div>
+
+    <template v-if="printer_connection_status!='disconnected'">
+      <span class="separator"></span>
+      <div class="section" id="section-tape">
+        <font-awesome-icon icon="fa-solid fa-tape"/>
+        <span v-if="tape_text_color" :style="{color: tape_text_color.color_on_black}">
+          {{ tape_text_color.name }} Text
+        </span>
+        <span>on</span>
+        <span v-if="tape_tape_color" class="badge" :style="{backgroundColor: tape_tape_color.color_on_black, color: 'black'}">
+          {{ tape_tape_color.name }} {{ tape_media_type.name }}
+        </span>
+        <span>
+          {{ tape_width_mm }}mm
+        </span>
+      </div>
+
+      <span class="separator"></span>
+      <div class="section" id="section-print">
+        <button class="btn btn-sm btn-outline-primary" @click="$emit('print')" :disabled="!print_enabled">Print</button>
+      </div>
+    </template>
+
 
     <span class="spacer"></span>
 
@@ -75,12 +81,14 @@ export default {
     tape_width_mm: {type: Number, required: true},
     tape_tape_color: {type: Object as PropType<PTouchTapeColor>, required: true},
     tape_text_color: {type: Object as PropType<PTouchTextColor>, required: true},
+    print_enabled: {type: Boolean, required: true},
   },
   emits: {
     connectPrinter: () => true,
     disconnectPrinter: () => true,
     connectMockPrinter: () => true,
     showPrinterInfo: () => true,
+    print: () => true,
   },
 }
 </script>
