@@ -1,0 +1,1 @@
+export type PrinterConnectionStatus = "disconnected" | "mock_connected" | "connected";

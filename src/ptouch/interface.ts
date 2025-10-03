@@ -11,8 +11,7 @@ import {
     PTouchDeviceStatus,
     PTouchDeviceType,
     PTouchDeviceTypeFlags,
-    PTouchErrorInformation,
-    PTouchTextColor
+    PTouchErrorInformation
 } from "./data";
 import {sleep} from "../util";
 
@@ -45,6 +44,8 @@ export interface PTouchInterface {
     get_ptouch_device_type(): PTouchDeviceType|null;
 
     require_connected(): void;
+
+    is_mock(): boolean;
 }
 
 export class PTouchInterfaceUSB implements PTouchInterface {
@@ -54,19 +55,26 @@ export class PTouchInterfaceUSB implements PTouchInterface {
     private outEndpointNr = 0x02;
     private inEndpointNr = 0x81;
 
+    private connected = false;
+
     async connect() {
+        if (this.connected) {
+            throw new Error("Already connected");
+        }
         await this.open();
         await this.init();
         await this.update_status();
+        this.connected = true;
     }
 
     async disconnect() {
-        if (!this.device) {
+        if (!this.device || !this.connected) {
             return;
         }
         await this.device.close();
         this.device = null;
         this.deviceType = null;
+        this.connected = false;
     }
 
     async update_status() {
@@ -75,6 +83,10 @@ export class PTouchInterfaceUSB implements PTouchInterface {
 
     get_status() {
         return this.deviceStatus!;
+    }
+
+    is_mock(): boolean {
+        return false;
     }
 
     private async open() {
@@ -315,7 +327,7 @@ export class PTouchInterfaceUSB implements PTouchInterface {
     }
 
     is_connected() {
-        return !!this.device;
+        return this.connected;
     }
 
     check_support(): string | null {
@@ -348,7 +360,7 @@ export class PTouchInterfaceUSB implements PTouchInterface {
     }
 
     require_connected() {
-        if (!this.is_connected()) {
+        if (!this.device) {
             throw new Error("Not connected");
         }
     }

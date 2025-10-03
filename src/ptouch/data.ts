@@ -83,13 +83,19 @@ export interface PTouchMediaType {
 }
 
 export interface PTouchTapeColor {
-    code: number,
-    name: string,
+    code: number;
+    name: string;
+    color: string;
+    color_on_white: string;
+    color_on_black: string;
 }
 
 export interface PTouchTextColor {
-    code: number,
-    name: string,
+    code: number;
+    name: string;
+    color: string;
+    color_on_white: string;
+    color_on_black: string;
 }
 
 export interface PTouchStatusType {
@@ -176,51 +182,51 @@ export const PTOUCH_MEDIA_TYPES: PTouchMediaType[] = [
 
 export const PTOUCH_TAPE_COLORS: PTouchTapeColor[] = [
     //table 8, page 29
-    {code: 0x01, name: "White"},
-    {code: 0x02, name: "Other"},
-    {code: 0x03, name: "Clear"},
-    {code: 0x04, name: "Red"},
-    {code: 0x05, name: "Blue"},
-    {code: 0x06, name: "Yellow"},
-    {code: 0x07, name: "Green"},
-    {code: 0x08, name: "Black"},
-    {code: 0x09, name: "Clear"},
-    {code: 0x20, name: "Matte White"},
-    {code: 0x21, name: "Matte Clear"},
-    {code: 0x22, name: "Matte Silver"},
-    {code: 0x23, name: "Satin Gold"},
-    {code: 0x24, name: "Satin Silver"},
-    {code: 0x30, name: "Blue (TZe-5[345]5)"},
-    {code: 0x31, name: "Red (TZe-435)"},
-    {code: 0x40, name: "Fluorescent Orange"},
-    {code: 0x41, name: "Fluorescent Yellow"},
-    {code: 0x50, name: "Berry Pink (TZe-MQP35)"},
-    {code: 0x51, name: "Light Gray (TZe-MQL35)"},
-    {code: 0x52, name: "Lime Green (TZe-MQG35)"},
-    {code: 0x60, name: "Yellow"},
-    {code: 0x61, name: "Pink"},
-    {code: 0x62, name: "Blue"},
-    {code: 0x70, name: "Heat-shrink Tube"},
-    {code: 0x90, name: "White(Flex. ID)"},
-    {code: 0x91, name: "Yellow(Flex. ID)"},
-    {code: 0xf0, name: "Cleaning"},
-    {code: 0xf1, name: "Stencil"},
-    {code: 0xff, name: "Incompatible"},
+    {code: 0x01, name: "White", color: "#fff", color_on_white: "#000", color_on_black: "#fff"},
+    {code: 0x02, name: "Other", color: "#333", color_on_white: "#333", color_on_black: "#ddd"},
+    {code: 0x03, name: "Clear", color: "#999", color_on_white: "#333", color_on_black: "#fff"},
+    {code: 0x04, name: "Red", color: "#f00", color_on_white: "#f00", color_on_black: "#f00"},
+    {code: 0x05, name: "Blue", color: "#00f", color_on_white: "#00f", color_on_black: "#00f"},
+    {code: 0x06, name: "Yellow", color: "#ff0", color_on_white: "#ff0", color_on_black: "#ff0"},
+    {code: 0x07, name: "Green", color: "#008024", color_on_white: "#008024", color_on_black: "#008024"},
+    {code: 0x08, name: "Black", color: "#000", color_on_white: "#000", color_on_black: "#fff"},
+    {code: 0x09, name: "Clear", color: "#999", color_on_white: "#333", color_on_black: "#fff"},
+    {code: 0x20, name: "Matte White", color: "#eee", color_on_white: "#111", color_on_black: "#eee"},
+    {code: 0x21, name: "Matte Clear", color: "#999", color_on_white: "#333", color_on_black: "#fff"},
+    {code: 0x22, name: "Matte Silver", color: "#ccc", color_on_white: "#555", color_on_black: "#ccc"},
+    {code: 0x23, name: "Satin Gold", color: "#cba135", color_on_white: "#cba135", color_on_black: "#cba135"},
+    {code: 0x24, name: "Satin Silver", color: "#ccc", color_on_white: "#555", color_on_black: "#ccc"},
+    {code: 0x30, name: "Blue (TZe-5[345]5)", color: "#00f", color_on_white: "#00f", color_on_black: "#00f"},
+    {code: 0x31, name: "Red (TZe-435)", color: "#f00", color_on_white: "#f00", color_on_black: "#f00"},
+    {code: 0x40, name: "Fluorescent Orange", color: "#ff8300", color_on_white: "#ff8300", color_on_black: "#ff8300"},
+    {code: 0x41, name: "Fluorescent Yellow", color: "#fff9a0", color_on_white: "#fff9a0", color_on_black: "#fff9a0"},
+    {code: 0x50, name: "Berry Pink (TZe-MQP35)", color: "#e93965", color_on_white: "#e93965", color_on_black: "#e93965"},
+    {code: 0x51, name: "Light Gray (TZe-MQL35)", color: "#ccc", color_on_white: "#666", color_on_black: "#ccc"},
+    {code: 0x52, name: "Lime Green (TZe-MQG35)", color: "#dce01a", color_on_white: "#dce01a", color_on_black: "#dce01a"},
+    {code: 0x60, name: "Yellow", color: "#ff0", color_on_white: "#ff0", color_on_black: "#ff0"},
+    {code: 0x61, name: "Pink", color: "#fc74fd", color_on_white: "#fc74fd", color_on_black: "#fc74fd"},
+    {code: 0x62, name: "Blue", color: "#00f", color_on_white: "#00f", color_on_black: "#00f"},
+    {code: 0x70, name: "Heat-shrink Tube", color: "#fff", color_on_white: "#000", color_on_black: "#fff"},
+    {code: 0x90, name: "White(Flex. ID)", color: "#fff", color_on_white: "#000", color_on_black: "#fff"},
+    {code: 0x91, name: "Yellow(Flex. ID)", color: "#ff0", color_on_white: "#ff0", color_on_black: "#ff0"},
+    {code: 0xf0, name: "Cleaning", color: "#fff", color_on_white: "#333", color_on_black: "#fff"},
+    {code: 0xf1, name: "Stencil", color: "#fff", color_on_white: "#333", color_on_black: "#fff"},
+    {code: 0xff, name: "Incompatible", color: "#91403d", color_on_white: "#91403d", color_on_black: "#91403d"},
 ];
 
 
 export const PTOUCH_TEXT_COLORS: PTouchTextColor[] = [
     //table 10, page 30
-    {code: 0x01, name: "White"},
-    {code: 0x02, name: "Other"},
-    {code: 0x04, name: "Red"},
-    {code: 0x05, name: "Blue"},
-    {code: 0x08, name: "Black"},
-    {code: 0x0a, name: "Gold"},
-    {code: 0x62, name: "Blue(F)"},
-    {code: 0xf0, name: "Cleaning"},
-    {code: 0xf1, name: "Stencil"},
-    {code: 0xff, name: "Incompatible"},
+    {code: 0x01, name: "White", color: "#fff", color_on_white: "#000", color_on_black: "#fff"},
+    {code: 0x02, name: "Other", color: "#ddd", color_on_white: "#333", color_on_black: "#ddd"},
+    {code: 0x04, name: "Red", color: "#f00", color_on_white: "#f00", color_on_black: "#f00"},
+    {code: 0x05, name: "Blue", color: "#00f", color_on_white: "#00f", color_on_black: "#00f"},
+    {code: 0x08, name: "Black", color: "#000", color_on_white: "#000", color_on_black: "#fff"},
+    {code: 0x0a, name: "Gold", color: "#cfa959", color_on_white: "#cfa959", color_on_black: "#cfa959"},
+    {code: 0x62, name: "Blue(F)", color: "#00f", color_on_white: "#00f", color_on_black: "#00f"},
+    {code: 0xf0, name: "Cleaning", color: "#fff", color_on_white: "#333", color_on_black: "#fff"},
+    {code: 0xf1, name: "Stencil", color: "#fff", color_on_white: "#333", color_on_black: "#fff"},
+    {code: 0xff, name: "Incompatible", color: "#91403d", color_on_white: "#91403d", color_on_black: "#91403d"},
 ];
 
 export const PTOUCH_DEVICE_TYPES: PTouchDeviceType[] = [

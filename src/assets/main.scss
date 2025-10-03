@@ -42,7 +42,7 @@
 // @import "bootstrap/scss/placeholders";
 
 // Helpers
-// @import "bootstrap/scss/helpers";
+@import "bootstrap/scss/helpers";
 
 // Utilities
 @import "bootstrap/scss/utilities/api";
@@ -52,6 +52,6 @@
 // Custom styles
 //
 
-body {
+main {
   padding: 1.5rem;
 }

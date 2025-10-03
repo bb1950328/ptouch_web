@@ -392,6 +392,8 @@ export interface DesignInterface {
 
     remove(id: number): void;
 
+    replace(element: DesignElement): void;
+
     elements(): DesignElement[];
 
     get_element(id: number): DesignElement;

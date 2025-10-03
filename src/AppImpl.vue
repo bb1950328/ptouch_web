@@ -1,80 +1,89 @@
 <template>
-  <button type="button" class="btn btn-primary" @click="deviceButtonClicked" :disabled="interf!=null && !interf.is_webusb_available()">
-    <span v-if="!interf.is_connected()"><font-awesome-icon icon="fa-brands fa-usb"/>Connect</span>
-    <span v-else>{{ interf.get_device_name() }}</span>
-  </button>
+  <Toolbar :printer_connection_status="!interf.is_connected()?'disconnected':(interf.is_mock() ? 'mock_connected' : 'connected')"
+           :printer_name="interf?.get_device_name()"
+           :tape_media_type="interf.get_status()?.media_type"
+           :tape_width_mm="interf.get_status()?.media_width_mm"
+           :tape_tape_color="interf.get_status()?.tape_color"
+           :tape_text_color="interf.get_status()?.text_color"
+           @connectPrinter="connectButtonClicked"
+           @disconnectPrinter="disconnectButtonClicked"
+           @connectMockPrinter="connectMockDevice"
+           @showPrinterInfo="showDeviceInfoDialog"/>
 
-  <div class="dropdown">
-    <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-      <font-awesome-icon icon="fa-solid fa-gear"/>
-    </button>
-    <ul class="dropdown-menu">
-      <li><a class="dropdown-item" href="#" @click="showDeviceInfoDialog">Device Info</a></li>
-      <li><a class="dropdown-item" href="#" @click="connectMockDevice">Connect Mock Device</a></li>
-    </ul>
-  </div>
+  <main>
+    <Preview :design="design" :px_per_mm="8" :tape_width_mm="24" :tape_length_mm="1000" :selected_element_ids="selected_element_ids" @elementClicked="onElementClicked"
+             @elementsChanged="editorElementsChanged"/>
 
-  <Preview :design="design" :px_per_mm="8" :tape_width_mm="24" :tape_length_mm="1000" :selected_element_ids="selected_element_ids" @elementClicked="onElementClicked"
-           @elementsChanged="editorElementsChanged"/>
+    <div class="btn-toolbar gap-1 mt-2 mb-2" role="toolbar" aria-label="Actions Toolbar">
+      <div class="btn-group" role="group" aria-label="Add Element">
+        <button type="button" class="btn btn-primary" v-on:click="addElementText">
+          <font-awesome-icon icon="fa-solid fa-font"/>
+          Text
+        </button>
+        <button type="button" class="btn btn-primary" v-on:click="addElementImage">
+          <font-awesome-icon icon="fa-solid fa-image"/>
+          Image
+        </button>
+        <button type="button" class="btn btn-primary" v-on:click="addElementIcon">
+          <font-awesome-icon icon="fa-solid fa-star"/>
+          Icon
+        </button>
+      </div>
 
-  <div class="btn-toolbar gap-1 mt-2 mb-2" role="toolbar" aria-label="Actions Toolbar">
-    <div class="btn-group" role="group" aria-label="Add Element">
-      <button type="button" class="btn btn-primary" v-on:click="addElementText">
-        <font-awesome-icon icon="fa-solid fa-font"/>
-        Text
-      </button>
-      <button type="button" class="btn btn-primary" v-on:click="addElementImage">
-        <font-awesome-icon icon="fa-solid fa-image"/>
-        Image
-      </button>
-      <button type="button" class="btn btn-primary" v-on:click="addElementIcon">
-        <font-awesome-icon icon="fa-solid fa-star"/>
-        Icon
-      </button>
-    </div>
-
-    <div class="btn-group" role="group" aria-label="Actions">
-      <button type="button" class="btn btn-primary" :disabled="selected_element_ids.size==0" v-on:click="cloneSelectedElements">
-        <font-awesome-icon icon="fa-solid fa-clone"/>
-        Clone
-      </button>
-      <button type="button" class="btn btn-danger" :disabled="selected_element_ids.size==0" v-on:click="deleteSelectedElements">
-        <font-awesome-icon icon="fa-solid fa-trash-can"/>
-        Delete
-      </button>
-    </div>
-  </div>
-
-  <div class="card">
-    <h5 class="card-header">Properties</h5>
-    <div class="card-body">
-      <p v-if="selected_element_ids.size==0">No element selected.</p>
-      <div v-else>
-        <EditorText v-if="shown_editor_types.has('text')" :elements="selected_elements as DesignElementText[]" @elementsChanged="editorElementsChanged"/>
-        <EditorImage v-if="shown_editor_types.has('image')" :elements="selected_elements as DesignElementImage[]" @elementsChanged="editorElementsChanged"/>
-        <EditorIcon v-if="shown_editor_types.has('icon')" :elements="selected_elements as DesignElementIcon[]" @elementsChanged="editorElementsChanged"/>
+      <div class="btn-group" role="group" aria-label="Actions">
+        <button type="button" class="btn btn-primary" :disabled="selected_element_ids.size==0" v-on:click="cloneSelectedElements">
+          <font-awesome-icon icon="fa-solid fa-clone"/>
+          Clone
+        </button>
+        <button type="button" class="btn btn-danger" :disabled="selected_element_ids.size==0" v-on:click="deleteSelectedElements">
+          <font-awesome-icon icon="fa-solid fa-trash-can"/>
+          Delete
+        </button>
       </div>
     </div>
-  </div>
 
-  <!-- TODO remove or hide -->
-  <textarea :value="JSON.stringify(design, null, 2)" rows="20" class="form-control w-100 mt-5" readonly/>
-
-  <DeviceInfoModal v-if="deviceInfoData!=null" ref="deviceInfoModal" :info="deviceInfoData"/>
-
-  <div class="toast-container position-fixed top-0 end-0 p-3">
-    <div id="errorNoWebUSB" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-      <div class="toast-header">
-        <strong class="me-auto">Error</strong>
-        <small></small>
-        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-      </div>
-      <div class="toast-body">
-        <p>Unfortunately, WebUSB is not supported in this browser.</p>
-        <p>Please switch to a browser that <a href="https://caniuse.com/webusb">supports WebUSB</a></p>
+    <div class="card">
+      <h5 class="card-header">Properties</h5>
+      <div class="card-body">
+        <p v-if="selected_element_ids.size==0">No element selected.</p>
+        <div v-else>
+          <EditorText v-if="shown_editor_types.has('text')" :elements="selected_elements as DesignElementText[]" @elementsChanged="editorElementsChanged"/>
+          <EditorImage v-if="shown_editor_types.has('image')" :elements="selected_elements as DesignElementImage[]" @elementsChanged="editorElementsChanged"/>
+          <EditorIcon v-if="shown_editor_types.has('icon')" :elements="selected_elements as DesignElementIcon[]" @elementsChanged="editorElementsChanged"/>
+        </div>
       </div>
     </div>
-  </div>
+
+    <!-- TODO remove or hide -->
+    <textarea :value="JSON.stringify(design, null, 2)" rows="20" class="form-control w-100 mt-5" readonly/>
+
+    <DeviceInfoModal v-if="deviceInfoData!=null" ref="deviceInfoModal" :info="deviceInfoData"/>
+
+    <div class="toast-container position-fixed top-0 end-0 p-3">
+      <div id="errorNoWebUSB" ref="errorNoWebUSB" class="toast text-bg-danger" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+          <strong class="me-auto">Error</strong>
+          <small></small>
+          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+          <p>Unfortunately, WebUSB is not supported in this browser.</p>
+          <p>Please switch to a browser that <a href="https://caniuse.com/webusb">supports WebUSB</a></p>
+        </div>
+      </div>
+      <div id="errorWhileConnecting" ref="errorWhileConnecting" class="toast text-bg-danger" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+          <strong class="me-auto">Error</strong>
+          <small></small>
+          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+          <p>An error occurred while connecting to the printer:</p>
+          <p>{{ printerConnectionErrorMessage }}</p>
+        </div>
+      </div>
+    </div>
+  </main>
 </template>
 
 <script lang="ts">
@@ -94,12 +103,14 @@ import {Design, DesignElement, DesignElementIcon, DesignElementImage, DesignElem
 import EditorText from "@/components/editor/EditorText.vue";
 import EditorImage from "@/components/editor/EditorImage.vue";
 import EditorIcon from "@/components/editor/EditorIcon.vue";
+import Toolbar from "@/components/toolbar/Toolbar.vue";
 
 library.add(faUsb, faGear, faFont, faImage, faClone, faTrashCan, faStar);
 
 export default {
   name: 'AppImpl',
   components: {
+    Toolbar,
     EditorImage,
     EditorText,
     Preview,
@@ -112,6 +123,7 @@ export default {
       interf: new PTouchInterfaceUSB() as PTouchInterface,
       design: new Design() as DesignInterface,
       selected_element_ids: new Set<number>(),
+      printerConnectionErrorMessage: "",
     }
   },
   computed: {
@@ -195,22 +207,36 @@ export default {
   },
   async mounted() {
     if (!this.interf.is_webusb_available()) {
-      let toast = document.getElementById("errorNoWebUSB")!;
-      let t = bootstrap.Toast.getOrCreateInstance(toast);
+      let t = bootstrap.Toast.getOrCreateInstance(this.$refs.errorNoWebUSB as HTMLElement);
       t.show();
     }
   },
   methods: {
-    async deviceButtonClicked() {
+    async connectButtonClicked() {
       console.log("deviceButtonClicked");
-      await this.interf.connect();
+      try {
+        await this.interf.connect();
+      } catch (e: unknown) {
+        if (typeof e === "string") {
+          this.printerConnectionErrorMessage = e;
+        } else if (e instanceof Error) {
+          this.printerConnectionErrorMessage = e.message;
+        }
+        let t = bootstrap.Toast.getOrCreateInstance(this.$refs.errorWhileConnecting as HTMLElement);
+        t.show();
+        throw e;
+      }
     },
     showDeviceInfoDialog() {
       (this.$refs.deviceInfoModal as typeof DeviceInfoModal).show();
     },
-    connectMockDevice() {
+    async connectMockDevice() {
       this.interf = new PTouchInterfaceMock();
-      this.interf.connect();
+      await this.interf.connect();
+    },
+    disconnectButtonClicked() {
+      this.interf.disconnect();
+      this.interf = new PTouchInterfaceUSB();
     },
     onElementClicked(event: PreviewElementClickedEvent) {
       if (event.ctrlPressed) {

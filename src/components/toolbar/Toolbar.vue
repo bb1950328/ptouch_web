@@ -1,0 +1,124 @@
+<template>
+  <div id="toolbar">
+    <div class="section" id="section-printer">
+      <font-awesome-icon icon="fa-solid fa-print"/>
+      <span v-if="printer_connection_status=='disconnected'" class="status-circle bg-danger"></span>
+      <span v-else-if="printer_connection_status=='mock_connected'" class="status-circle bg-warning"></span>
+      <span v-else class="status-circle bg-success"></span>
+      <span v-if="printer_connection_status=='disconnected'">No Printer connected</span>
+      <span v-else>{{ printer_name }}</span>
+
+      <button v-if="printer_connection_status!='disconnected'" class="btn btn-sm btn-outline-info" @click="$emit('showPrinterInfo')">
+        <font-awesome-icon icon="fa-solid fa-info"/>
+      </button>
+      <button v-if="printer_connection_status!='disconnected'" class="btn btn-sm btn-outline-danger" @click="$emit('disconnectPrinter')">
+        <font-awesome-icon icon="fa-solid fa-plug-circle-xmark"/>
+      </button>
+      <button v-if="printer_connection_status=='disconnected'" class="btn btn-sm btn-outline-success" @click="$emit('connectPrinter')">
+        <font-awesome-icon icon="fa-brands fa-usb"/>
+        Connect
+      </button>
+    </div>
+    <span class="separator"></span>
+    <div v-if="printer_connection_status!='disconnected'" class="section" id="section-tape">
+      <font-awesome-icon icon="fa-solid fa-tape"/>
+      <span v-if="tape_media_type">
+        {{ tape_media_type.name }},
+      </span>
+      <span v-if="tape_tape_color" :style="{color: tape_tape_color.color_on_black}">
+        {{ tape_tape_color.name }} Text
+      </span>
+      <span>on</span>
+      <span v-if="tape_text_color" class="badge" :style="{backgroundColor: tape_text_color.color_on_black, color: 'black'}">
+        {{ tape_text_color.name }}
+      </span>
+      <span>
+        {{ tape_width_mm }}mm
+      </span>
+    </div>
+
+    <span class="spacer"></span>
+
+    <div class="section" id="section-actions">
+      <div class="dropdown">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+          <font-awesome-icon icon="fa-solid fa-gear"/>
+        </button>
+        <ul class="dropdown-menu">
+          <li><a class="dropdown-item" href="#" @click="$emit('connectMockPrinter')">Connect Mock Device</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</template>
+<script lang="ts">
+
+import {library} from "@fortawesome/fontawesome-svg-core"
+import {faGear, faInfo, faPlugCircleXmark, faPrint, faTape} from "@fortawesome/free-solid-svg-icons";
+import {faUsb} from "@fortawesome/free-brands-svg-icons";
+import {FontAwesomeIcon} from "@fortawesome/vue-fontawesome";
+import {PropType} from "vue";
+import {PrinterConnectionStatus} from "@/components/toolbar/toolbar";
+import {PTouchMediaType, PTouchTapeColor, PTouchTextColor} from "@/ptouch/data";
+
+library.add(faUsb, faPrint, faTape, faInfo, faPlugCircleXmark, faGear);//todo remove unused icons
+
+export default {
+  name: "Toolbar",
+  components: {
+    "font-awesome-icon": FontAwesomeIcon,
+  },
+  props: {
+    printer_connection_status: {type: String as PropType<PrinterConnectionStatus>, required: true},
+    printer_name: {type: String, required: true},
+    tape_media_type: {type: Object as PropType<PTouchMediaType>, required: true},
+    tape_width_mm: {type: Number, required: true},
+    tape_tape_color: {type: Object as PropType<PTouchTapeColor>, required: true},
+    tape_text_color: {type: Object as PropType<PTouchTextColor>, required: true},
+  },
+  emits: {
+    connectPrinter: () => true,
+    disconnectPrinter: () => true,
+    connectMockPrinter: () => true,
+    showPrinterInfo: () => true,
+  },
+}
+</script>
+
+<style scoped>
+#toolbar {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 1rem;
+
+  background-color: #111;
+  height: 3rem;
+  padding: 0.5rem;
+}
+
+.section {
+  height: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.separator {
+  height: 80%;
+  width: 1px;
+  background-color: #666;
+}
+
+.status-circle {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+}
+
+.spacer {
+  flex-grow: 1;
+}
+</style>

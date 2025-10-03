@@ -4,13 +4,21 @@ import {
     findMediaType,
     findNotification,
     findPhase,
-    findStatusType, findTapeColor, findTextColor,
-    PTouchDeviceStatus, PTouchDeviceType,
+    findStatusType,
+    findTapeColor,
+    findTextColor,
+    PTouchDeviceStatus,
+    PTouchDeviceType,
     PTouchErrorInformation
 } from "./data";
 
 export class PTouchInterfaceMock implements PTouchInterface {
     private connected = false;
+
+    is_mock(): boolean {
+        return true;
+    }
+
     async connect() {
         this.connected = true;
     }
@@ -60,7 +68,7 @@ export class PTouchInterfaceMock implements PTouchInterface {
     }
 
     get_device_name(): string {
-        return this.get_ptouch_device_type()!.name;
+        return this.get_ptouch_device_type()!.name + " (Mock)";
     }
 
     get_webusb_device(): USBDevice | null {
