@@ -60,7 +60,7 @@ export class PTouchInterfaceUSB implements PTouchInterface {
     private inEndpointNr = 0x81;
 
     private connected = false;
-    private pollInterval: number | null = null;
+    private pollInterval: NodeJS.Timeout | null = null;
     private statusCallback: (() => void) | null = null;
 
     async connect() {
@@ -259,7 +259,7 @@ export class PTouchInterfaceUSB implements PTouchInterface {
         await this.send(cmd);
     }
 
-    private async getstatus(): Promise<PTouchDeviceStatus | null> {
+    private async getstatus(): Promise<[PTouchDeviceStatus | null, Uint8Array]> {
         let cmd = new Uint8Array([0x1b, 0x69, 0x53]);/* 1B 69 53 = ESC i S = Status info request */
         await this.send(cmd);
 
@@ -488,7 +488,7 @@ export class PTouchInterfaceUSB implements PTouchInterface {
         }
     }
 
-    set_status_callback(callback: (status: PTouchDeviceStatus) => void): void {
+    set_status_callback(callback: () => void): void {
         this.statusCallback = callback;
     }
 }

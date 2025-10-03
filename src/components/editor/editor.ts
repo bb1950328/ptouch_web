@@ -1,6 +1,6 @@
-export type EditorType = "text" | "image" | "icon";
+export type EditorType = "text" | "image" | "icon" | "qrcode";
 
-export function getSingleValue<T>(elements: E[], getter: (element: E) => T, defaultValue: T): T {
+export function getSingleValue<T, E>(elements: E[], getter: (element: E) => T, defaultValue: T): T {
     let singleValue: T = getter(elements[0]);
     for (let i = 0; i < elements.length; i++) {
         let e = elements[i];

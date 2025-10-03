@@ -35,6 +35,17 @@
           <font-awesome-icon icon="fa-solid fa-star"/>
           Icon
         </button>
+        <div class="btn-group" role="group">
+          <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+            More
+          </button>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" @click="addElementQRCode">
+              <font-awesome-icon icon="fa-solid fa-qrcode"/>
+              QR Code
+            </a></li>
+          </ul>
+        </div>
       </div>
 
       <div class="btn-group" role="group" aria-label="Actions">
@@ -57,6 +68,7 @@
           <EditorText v-if="shown_editor_types.has('text')" :elements="selected_elements as DesignElementText[]" @elementsChanged="editorElementsChanged"/>
           <EditorImage v-if="shown_editor_types.has('image')" :elements="selected_elements as DesignElementImage[]" @elementsChanged="editorElementsChanged"/>
           <EditorIcon v-if="shown_editor_types.has('icon')" :elements="selected_elements as DesignElementIcon[]" @elementsChanged="editorElementsChanged"/>
+          <EditorQRCode v-if="shown_editor_types.has('qrcode')" :elements="selected_elements as DesignElementQRCode[]" @elementsChanged="editorElementsChanged"/>
         </div>
       </div>
     </div>
@@ -97,14 +109,14 @@
 import * as bootstrap from 'bootstrap';
 import {FontAwesomeIcon} from "@fortawesome/vue-fontawesome";
 import {library} from "@fortawesome/fontawesome-svg-core"
-import {faClone, faFont, faGear, faImage, faStar, faTrashCan} from "@fortawesome/free-solid-svg-icons";
+import {faClone, faFont, faGear, faImage, faQrcode, faStar, faTrashCan} from "@fortawesome/free-solid-svg-icons";
 import {faUsb} from "@fortawesome/free-brands-svg-icons"
 import DeviceInfoModal from "@/components/device_info_modal/DeviceInfoModal.vue";
 import type {EditorType} from "@/components/editor/editor";
 
 import {DeviceInfoModalProps, PTouchDeviceStatusData, PTouchDeviceTypeData, WebUSBInfoData} from "@/components/device_info_modal/prop_type";
 import Preview, {PreviewElementClickedEvent} from "@/components/preview/Preview.vue";
-import {Design, DesignElement, DesignElementIcon, DesignElementImage, DesignElementText, DesignInterface} from "@/design";
+import {Design, DesignElement, DesignElementIcon, DesignElementImage, DesignElementQRCode, DesignElementText, DesignInterface} from "@/design";
 import EditorText from "@/components/editor/EditorText.vue";
 import EditorImage from "@/components/editor/EditorImage.vue";
 import EditorIcon from "@/components/editor/EditorIcon.vue";
@@ -113,8 +125,9 @@ import {findTapeInfo, PTouchDeviceStatus, PTouchTapeInfo} from "@/ptouch/data";
 import {markRaw} from "vue";
 import {InterfaceManager} from "@/ptouch/interface_manager";
 import {PrinterConnectionStatus} from "@/components/toolbar/toolbar";
+import EditorQRCode from "@/components/editor/EditorQRCode.vue";
 
-library.add(faUsb, faGear, faFont, faImage, faClone, faTrashCan, faStar);
+library.add(faUsb, faGear, faFont, faImage, faClone, faTrashCan, faStar, faQrcode);
 
 interface InterfaceData {
   connected: boolean;
@@ -132,6 +145,7 @@ export default {
     'font-awesome-icon': FontAwesomeIcon,
     DeviceInfoModal,
     EditorIcon,
+    EditorQRCode,
   },
   data() {
     const interfaceData: InterfaceData = {
@@ -222,7 +236,7 @@ export default {
       return result;
     },
     shown_editor_types(): Set<EditorType> {
-      let result = new Set<EditorType>(["text", "image", "icon"]);
+      let result = new Set<EditorType>(["text", "image", "icon", "qrcode"]);
       if (this.selected_element_ids.size == 0) {
         result.clear();
       } else {
@@ -236,6 +250,9 @@ export default {
           }
           if (!(element instanceof DesignElementIcon)) {
             result.delete("icon");
+          }
+          if (!(element instanceof DesignElementQRCode)) {
+            result.delete("qrcode");
           }
         });
       }
@@ -362,15 +379,29 @@ export default {
       this.selected_element_ids.clear();
       this.selected_element_ids.add(element.id());
     },
+    addElementQRCode() {
+      let tapeWidth = this.interfaceData.status!.media_width_mm;
+      let element = new DesignElementQRCode(
+          this.design.nextId(),
+          this.design.rightEndMM(),
+          tapeWidth / 4,
+          tapeWidth / 2,
+          "https://example.com",
+          "M",
+      );
+      this.design.add(element);
+      this.selected_element_ids.clear();
+      this.selected_element_ids.add(element.id());
+    },
     editorElementsChanged(newElements: DesignElement[]) {
       newElements.forEach(e => this.design.replace(e));
     },
-    printDesign() {
+    async printDesign() {
       console.log("print");
       let printCanvas = document.createElement("canvas") as HTMLCanvasElement;
       let printCtx = printCanvas.getContext("2d", {willReadFrequently: true})!;
-      this.design.renderToPrint({ctx: printCtx, px_per_mm: this.pxPerMM, canvas: printCanvas, tape_width_mm: this.tape_info!.width_mm});
-      this.interfaceManager.get().print(printCanvas, false);
+      await this.design.renderToPrint({ctx: printCtx, px_per_mm: this.pxPerMM, canvas: printCanvas, tape_width_mm: this.tape_info!.width_mm});
+      await this.interfaceManager.get().print(printCanvas, false);
     },
   },
 }

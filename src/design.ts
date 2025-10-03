@@ -2,6 +2,9 @@ import {hexToRgb} from "@/util";
 import {IconDefinition} from "@fortawesome/fontawesome-svg-core";
 import {findIconByName} from "@/icons";
 
+import * as QRCode from 'qrcode'
+import {QRCodeRenderersOptions} from 'qrcode'
+
 export class BBox {
     private readonly _x1: number;
     private readonly _y1: number;
@@ -49,9 +52,9 @@ export interface DesignElement {
 
     bbox(): BBox;
 
-    update(info: UpdateInfo): void;
+    update(info: UpdateInfo): Promise<boolean>;
 
-    render(info: RenderInfo): void;
+    render(info: RenderInfo): Promise<void>;
 
     clone(): this;
 
@@ -114,11 +117,16 @@ export class DesignElementText implements MovableDesignElement {
         return this._id;
     }
 
-    update(info: UpdateInfo) {
+    async update(info: UpdateInfo): Promise<boolean> {
+        const old_calculated_with = this._calculated_width_mm;
+        const old_calculated_height = this._calculated_height_mm;
+
         this.initCtx(info);
         let text_metrics = info.ctx.measureText(this._text);
         this._calculated_width_mm = (text_metrics.actualBoundingBoxLeft + text_metrics.actualBoundingBoxRight) / info.px_per_mm;
         this._calculated_height_mm = (text_metrics.fontBoundingBoxAscent + text_metrics.fontBoundingBoxDescent) / info.px_per_mm;
+
+        return old_calculated_with !== this._calculated_width_mm || old_calculated_height !== this._calculated_height_mm;
     }
 
     private initCtx(info: BaseInfo) {
@@ -132,7 +140,7 @@ export class DesignElementText implements MovableDesignElement {
         return new BBox(this._x_mm, this._y_mm, this._x_mm + this._calculated_width_mm!, this._y_mm + this._calculated_height_mm!);
     }
 
-    render(info: RenderInfo) {
+    async render(info: RenderInfo): Promise<void> {
         this.initCtx(info);
         info.ctx.fillStyle = info.fg_color;
         info.ctx.fillText(this._text, this._x_mm * info.px_per_mm, this._y_mm * info.px_per_mm);
@@ -233,11 +241,12 @@ export class DesignElementImage implements MovableDesignElement {
             this._y_mm + this._height_mm);
     }
 
-    update(info: UpdateInfo): void {
+    async update(info: UpdateInfo): Promise<boolean> {
         //nothing to do
+        return false;
     }
 
-    render(info: RenderInfo): void {
+    async render(info: RenderInfo): Promise<void> {
         this.processImage(info);
         if (DesignElementImage._processed_images.has(this._id)) {
             info.ctx.putImageData(DesignElementImage._processed_images.get(this._id)!, this._x_mm * info.px_per_mm, this._y_mm * info.px_per_mm);
@@ -409,7 +418,7 @@ export interface DesignInterface {
 
     rightEndMM(): number;
 
-    renderToPrint(info: PrintInfo): void;
+    renderToPrint(info: PrintInfo): Promise<void>;
 }
 
 export class Design implements DesignInterface {
@@ -479,13 +488,13 @@ export class Design implements DesignInterface {
         return right;
     }
 
-    renderToPrint(info: PrintInfo): void {
+    async renderToPrint(info: PrintInfo): Promise<void> {
         info.canvas.height = info.tape_width_mm * info.px_per_mm;
         info.canvas.width = this.rightEndMM() * info.px_per_mm;
 
         for (let el of this._elements) {
             info.ctx.save();
-            el.update({ctx: info.ctx, px_per_mm: info.px_per_mm});
+            await el.update({ctx: info.ctx, px_per_mm: info.px_per_mm});
             info.ctx.restore();
         }
 
@@ -496,7 +505,7 @@ export class Design implements DesignInterface {
 
         for (let el of this._elements) {
             info.ctx.save();
-            el.render({ctx: info.ctx, px_per_mm: info.px_per_mm, bg_color: "#ffffff", fg_color: "#000000"});
+            await el.render({ctx: info.ctx, px_per_mm: info.px_per_mm, bg_color: "#ffffff", fg_color: "#000000"});
             info.ctx.restore();
         }
     }
@@ -557,19 +566,21 @@ export class DesignElementIcon implements MovableDesignElement {
         return new BBox(this._x_mm, this._y_mm, this._x_mm + w, this._y_mm + this._size_mm);
     }
 
-    update(info: UpdateInfo): void {
+    async update(info: UpdateInfo): Promise<boolean> {
+        const old_with = this._calculated_width_mm;
         const def = this.getIconDef();
         if (!def) {
             this._calculated_width_mm = this._size_mm;
-            return;
-        }
-        const width = def.icon[0];
-        const height = def.icon[1];
+        } else {
+            const width = def.icon[0];
+            const height = def.icon[1];
 
-        this._calculated_width_mm = this._size_mm * (width / height);
+            this._calculated_width_mm = this._size_mm * (width / height);
+        }
+        return old_with !== this._calculated_width_mm;
     }
 
-    render(info: RenderInfo): void {
+    async render(info: RenderInfo): Promise<void> {
         const def = this.getIconDef();
         if (!def) {
             return;
@@ -624,5 +635,117 @@ export class DesignElementIcon implements MovableDesignElement {
     moveAnchor(x: number, y: number): void {
         this._x_mm = x;
         this._y_mm = y;
+    }
+}
+
+export type DesignElementQRCodeErrorCorrection = "L" | "M" | "Q" | "H";
+
+export class DesignElementQRCode implements MovableDesignElement {
+    private readonly _id: number;
+    private _x_mm: number;
+    private _y_mm: number;
+    private _size_mm: number;
+    private _data: string;
+    private _error_correction: DesignElementQRCodeErrorCorrection;
+
+    private _calculated_large_enough: boolean | null = null;
+
+    constructor(id: number, x_mm: number, y_mm: number, size_mm: number, data: string, error_correction: DesignElementQRCodeErrorCorrection) {
+        this._id = id;
+        this._x_mm = x_mm;
+        this._y_mm = y_mm;
+        this._size_mm = size_mm;
+        this._data = data;
+        this._error_correction = error_correction;
+    }
+
+    id(): number {
+        return this._id;
+    }
+
+    getAnchor(): [number, number] {
+        return [this._x_mm, this._y_mm];
+    }
+
+    moveAnchor(x: number, y: number): void {
+        this._x_mm = x;
+        this._y_mm = y;
+    }
+
+    bbox(): BBox {
+        return new BBox(this._x_mm, this._y_mm, this._x_mm + this._size_mm, this._y_mm + this._size_mm);
+    }
+
+    async update(info: UpdateInfo): Promise<boolean> {
+        const old_large_enough = this._calculated_large_enough;
+
+        let renderOptions = this.getRenderOptions(info);
+        renderOptions.width = undefined;
+        renderOptions.scale = 1;
+        let tmpCanvas = await QRCode.toCanvas(this._data, renderOptions);
+        let size_px = this._size_mm * info.px_per_mm;
+        this._calculated_large_enough = tmpCanvas.width <= size_px;
+
+        return old_large_enough !== this._calculated_large_enough;
+    }
+
+    async render(info: RenderInfo): Promise<void> {
+        const size_px = this._size_mm * info.px_per_mm;
+        let renderOptions = this.getRenderOptions(info);
+        renderOptions.color = {
+            dark: info.fg_color,
+            light: info.bg_color,
+        }
+        const tmpCanvas = await QRCode.toCanvas(this._data, renderOptions);
+        if (tmpCanvas.width > size_px || tmpCanvas.height > size_px) {
+            info.ctx.fillRect(this._x_mm * info.px_per_mm, this._y_mm * info.px_per_mm, size_px, size_px);
+        } else {
+            info.ctx.drawImage(tmpCanvas, 0, 0, size_px, size_px, this._x_mm * info.px_per_mm, this._y_mm * info.px_per_mm, size_px, size_px);
+        }
+    }
+
+    private getRenderOptions(info: BaseInfo): QRCodeRenderersOptions {
+        let size_px = this._size_mm * info.px_per_mm;
+        return {
+            margin: 0,
+            width: size_px,
+            errorCorrectionLevel: this._error_correction,
+        };
+    }
+
+    clone(): this {
+        return new DesignElementQRCode(this._id, this._x_mm, this._y_mm, this._size_mm, this._data, this._error_correction) as this;
+    }
+
+    duplicate(newId: number, x1_mm: number): this {
+        return new DesignElementQRCode(newId, x1_mm, this._y_mm, this._size_mm, this._data, this._error_correction) as this;
+    }
+
+    isCalculatedLargeEnough(): boolean {
+        return this._calculated_large_enough ?? true;
+    }
+
+    getData(): string {
+        return this._data;
+    }
+
+    setData(data: string) {
+        this._data = data;
+    }
+
+    getSizeMM(): number {
+        return this._size_mm;
+    }
+
+    setSizeMM(size_mm: number) {
+        this._size_mm = size_mm;
+    }
+
+    getErrorCorrection(): DesignElementQRCodeErrorCorrection {
+        return this._error_correction;
+    }
+
+    setErrorCorrection(error_correction: DesignElementQRCodeErrorCorrection) {
+        this._error_correction = error_correction;
     }
 }

@@ -3,6 +3,7 @@ import {PTouchDeviceStatus} from "@/ptouch/data";
 import {PTouchInterfaceMock} from "@/ptouch/mock_interface";
 
 export class InterfaceManager {
+    //@ts-ignore (is set in this.setInterface(...) call inside constructor
     private interf: PTouchInterface;
     private listeners: Map<number, ((status: PTouchDeviceStatus) => void)>;
 
@@ -11,7 +12,7 @@ export class InterfaceManager {
         this.listeners = new Map();
     }
 
-    private setInterface(interf: PTouchInterfaceUSB) {
+    private setInterface(interf: PTouchInterface) {
         this.interf = interf;
         this.interf.set_status_callback(() => this.callDeviceStatusListeners());
     }

@@ -91,11 +91,11 @@ export default {
       }
     };
   },
-  mounted(): any {
-    this.renderCanvas();
+  async mounted() {
+    await this.renderCanvas();
   },
   methods: {
-    renderCanvas() {
+    async renderCanvas() {
       let fgColor = "#000000";
       let bgColor = "#ffffff";
 
@@ -114,11 +114,15 @@ export default {
       });
 
       // Update metrics for all
-      elementsToRender.forEach(e => {
+      const changedElements: DesignElement[] = [];
+      for (const e of elementsToRender) {
         ctx.save();
-        e.update({ctx: ctx, px_per_mm: this.px_per_mm});
+        const changed = await e.update({ctx: ctx, px_per_mm: this.px_per_mm});
         ctx.restore();
-      });
+        if (changed) {
+          changedElements.push(e);
+        }
+      }
 
       // Clear background
       ctx.save();
@@ -141,11 +145,11 @@ export default {
       ctx.restore();
 
       // Render elements in order
-      elementsToRender.forEach(e => {
+      for (const e of elementsToRender) {
         ctx.save();
-        e.render({ctx: ctx, px_per_mm: this.px_per_mm, fg_color: fgColor, bg_color: bgColor});
+        await e.render({ctx: ctx, px_per_mm: this.px_per_mm, fg_color: fgColor, bg_color: bgColor});
         ctx.restore();
-      });
+      }
 
       // Draw selection rectangles (use dragged copy if exists)
       ctx.save();
@@ -157,6 +161,10 @@ export default {
         ctx.strokeRect(bbox.x1() * this.px_per_mm, bbox.y1() * this.px_per_mm, bbox.width() * this.px_per_mm, bbox.height() * this.px_per_mm);
       });
       ctx.restore();
+
+      if (changedElements.length > 0) {
+        this.$emit("elementsChanged", changedElements);
+      }
     },
     onMouseDown(event: MouseEvent) {
       const xMM = event.offsetX / this.px_per_mm;
