@@ -345,7 +345,7 @@ export default {
     },
     addElementText() {
       let tapeWidth = this.interfaceData.status!.media_width_mm;
-      let element = new DesignElementText(this.design.nextId(), "Text", this.design.rightEndMM(), tapeWidth / 4, tapeWidth / 2);
+      let element = new DesignElementText(this.design.nextId(), "Text", this.design.rightEndMM(), tapeWidth / 4, tapeWidth / 2, "Roboto", "normal");
       this.design.add(element);
       this.selected_element_ids.clear();
       this.selected_element_ids.add(element.id());

@@ -87,30 +87,48 @@ export interface PrintInfo extends BaseInfo {
     tape_width_mm: number;
 }
 
+export enum DesignElementTextFont {
+    ROBOTO = "Roboto",
+    ROBOTO_MONO = "Roboto Mono",
+    PIXELIFY_SANS_VARIABLE = "Pixelify Sans Variable",
+    BEBAS_NEUE = "Bebas Neue",
+}
+
+export enum DesignElementTextStyle {
+    NORMAL = "normal",
+    ITALIC = "italic",
+    BOLD = "bold",
+    BOLD_ITALIC = "bold italic",
+}
+
 export class DesignElementText implements MovableDesignElement {
     private readonly _id: number;
     private _text: string;
     private _x_mm: number;
     private _y_mm: number;
     private _size_mm: number;
+    private _font: DesignElementTextFont;
+    private _style: DesignElementTextStyle;
 
     private _calculated_width_mm: number | null = null;
     private _calculated_height_mm: number | null = null;
 
-    constructor(id: number, text: string, x: number, y: number, size: number) {
+    constructor(id: number, text: string, x: number, y: number, size: number, font: DesignElementTextFont, style: DesignElementTextStyle) {
         this._id = id;
         this._text = text;
         this._x_mm = x;
         this._y_mm = y;
         this._size_mm = size;
+        this._font = font;
+        this._style = style;
     }
 
     clone(): this {
-        return new DesignElementText(this._id, this._text, this._x_mm, this._y_mm, this._size_mm) as this;
+        return new DesignElementText(this._id, this._text, this._x_mm, this._y_mm, this._size_mm, this._font, this._style) as this;
     }
 
     duplicate(newId: number, x1_mm: number): this {
-        return new DesignElementText(newId, this._text, x1_mm, this._y_mm, this._size_mm) as this;
+        return new DesignElementText(newId, this._text, x1_mm, this._y_mm, this._size_mm, this._font, this._style) as this;
     }
 
     id(): number {
@@ -130,8 +148,7 @@ export class DesignElementText implements MovableDesignElement {
     }
 
     private initCtx(info: BaseInfo) {
-        let size_px = this._size_mm * info.px_per_mm;
-        info.ctx.font = `${size_px}px sans-serif`;
+        info.ctx.font = `${this._style} ${this._size_mm * info.px_per_mm}px ${this._font}`;
         info.ctx.textAlign = "start";
         info.ctx.textBaseline = "top";
     }
@@ -145,7 +162,6 @@ export class DesignElementText implements MovableDesignElement {
         info.ctx.fillStyle = info.fg_color;
         info.ctx.fillText(this._text, this._x_mm * info.px_per_mm, this._y_mm * info.px_per_mm);
     }
-
     getText(): string {
         return this._text;
     }
@@ -169,6 +185,22 @@ export class DesignElementText implements MovableDesignElement {
     moveAnchor(x: number, y: number): void {
         this._x_mm = x;
         this._y_mm = y;
+    }
+
+    getFont(): DesignElementTextFont {
+        return this._font;
+    }
+
+    setFont(font: DesignElementTextFont) {
+        this._font = font;
+    }
+
+    getStyle(): DesignElementTextStyle {
+        return this._style;
+    }
+
+    setStyle(style: DesignElementTextStyle) {
+        this._style = style;
     }
 }
 

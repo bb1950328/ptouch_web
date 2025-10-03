@@ -12,6 +12,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource-variable/pixelify-sans": "^5.2.7",
+    "@fontsource/bebas-neue": "^5.2.7",
+    "@fontsource/roboto": "^5.2.8",
+    "@fontsource/roboto-mono": "^5.2.8",
     "@fortawesome/fontawesome-svg-core": "^7.0.1",
     "@fortawesome/free-brands-svg-icons": "^7.0.1",
     "@fortawesome/free-solid-svg-icons": "^7.0.1",

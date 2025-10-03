@@ -258,7 +258,7 @@ export const PTOUCH_DEVICE_TYPES: PTouchDeviceType[] = [
 export const PTOUCH_ERROR_INFORMATIONS: PTouchErrorInformation[] = [
     //table 1, page 26
     {mask: 0x01, description: "No media", can_still_print: false},
-    {mask: 0x4, description: "Cutter Jam", can_still_print: false},
+    {mask: 0x4, description: "Cutter Jam", can_still_print: true},
     {mask: 0x8, description: "Weak Batteries", can_still_print: true},
     {mask: 0x40, description: "High Voltage Adapter", can_still_print: true},
 
