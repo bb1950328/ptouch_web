@@ -1,7 +1,7 @@
 export interface PTouchTapeInfo {
     width_mm: number;
     width_px: number;
-    margins_mm?: number;
+    margins_mm: number;
 }
 
 export enum PTouchPageFlags {

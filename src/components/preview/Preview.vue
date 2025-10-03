@@ -11,8 +11,6 @@
       </div>
       <div class="preview-canvas">
         <canvas id="previewCanvas"
-                :width="tape_length_mm*px_per_mm"
-                :height="tape_width_mm*px_per_mm"
                 ref="canvasElement"
                 @mousedown="onMouseDown"
                 @mousemove="onMouseMove"
@@ -65,7 +63,19 @@ export default {
         this.renderCanvas();
       },
       deep: true,
-    }
+    },
+    px_per_mm() {
+      this.renderCanvas();
+    },
+    tape_width_mm() {
+      this.renderCanvas();
+    },
+    tape_margin_mm() {
+      this.renderCanvas();
+    },
+    tape_length_mm() {
+      this.renderCanvas();
+    },
   },
   data() {
     return {
@@ -90,6 +100,10 @@ export default {
       let bgColor = "#ffffff";
 
       const canvas = this.$refs.canvasElement as HTMLCanvasElement;
+
+      canvas.width = this.tape_length_mm * this.px_per_mm;
+      canvas.height = this.tape_width_mm * this.px_per_mm;
+
       const ctx = canvas.getContext("2d")!;
       ctx.fillStyle = fgColor;
       ctx.strokeStyle = fgColor;

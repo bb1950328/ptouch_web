@@ -29,7 +29,7 @@
         </span>
         <span>on</span>
         <span v-if="tape_tape_color" class="badge" :style="{backgroundColor: tape_tape_color.color_on_black, color: 'black'}">
-          {{ tape_tape_color.name }} {{ tape_media_type.name }}
+          {{ tape_tape_color.name }} {{ tape_media_type?.name ?? '' }}
         </span>
         <span>
           {{ tape_width_mm }}mm
@@ -77,10 +77,10 @@ export default {
   props: {
     printer_connection_status: {type: String as PropType<PrinterConnectionStatus>, required: true},
     printer_name: {type: String, required: true},
-    tape_media_type: {type: Object as PropType<PTouchMediaType>, required: true},
-    tape_width_mm: {type: Number, required: true},
-    tape_tape_color: {type: Object as PropType<PTouchTapeColor>, required: true},
-    tape_text_color: {type: Object as PropType<PTouchTextColor>, required: true},
+    tape_media_type: {type: null as unknown as PropType<PTouchMediaType | null>, default: null, required: false},
+    tape_width_mm: {type: null as unknown as PropType<Number | null>, default: null, required: false},
+    tape_tape_color: {type: null as unknown as PropType<PTouchTapeColor | null>, default: null, required: false},
+    tape_text_color: {type: null as unknown as PropType<PTouchTextColor | null>, default: null, required: false},
     print_enabled: {type: Boolean, required: true},
   },
   emits: {

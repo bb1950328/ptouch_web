@@ -1,22 +1,21 @@
 <template>
-  <Toolbar :printer_connection_status="!interf.is_connected()?'disconnected':(interf.is_mock() ? 'mock_connected' : 'connected')"
-           :printer_name="interf?.get_device_name()"
-           :tape_media_type="interf.get_status()?.media_type"
-           :tape_width_mm="interf.get_status()?.media_width_mm"
-           :tape_tape_color="interf.get_status()?.tape_color"
-           :tape_text_color="interf.get_status()?.text_color"
+  <Toolbar :printer_connection_status="printerConnectionStatusStr"
+           :printer_name="interfaceData.deviceType?.name ?? '?'"
+           :tape_media_type="interfaceData.status?.media_type ?? null"
+           :tape_width_mm="interfaceData.status?.media_width_mm ?? null"
+           :tape_tape_color="interfaceData.status?.tape_color ?? null"
+           :tape_text_color="interfaceData.status?.text_color ?? null"
            :print_enabled="design.elements().length>0"
            @connectPrinter="connectButtonClicked"
            @disconnectPrinter="disconnectButtonClicked"
            @connectMockPrinter="connectMockDevice"
            @showPrinterInfo="showDeviceInfoDialog"
            @print="printDesign"/>
-
-  <main v-if="interf.is_connected()">
+  <main v-if="interfaceData.connected">
     <Preview :design="design"
              :px_per_mm="pxPerMM"
-             :tape_width_mm="tape_info?.width_mm"
-             :tape_margin_mm="tape_info?.margins_mm"
+             :tape_width_mm="tape_info?.width_mm ?? 24"
+             :tape_margin_mm="tape_info?.margins_mm ?? 3"
              :tape_length_mm="1000"
              :selected_element_ids="selected_element_ids"
              @elementClicked="onElementClicked"
@@ -63,7 +62,7 @@
     </div>
 
     <!-- TODO remove or hide -->
-    <textarea :value="JSON.stringify(design, null, 2)" rows="20" class="form-control w-100 mt-5" readonly/>
+    <textarea :value="JSON.stringify(design, null, 2)" rows="20" class="form-control w-100 mt-5" id="designJsonArea" readonly/>
 
     <DeviceInfoModal v-if="deviceInfoData!=null" ref="deviceInfoModal" :info="deviceInfoData"/>
 
@@ -95,7 +94,6 @@
 </template>
 
 <script lang="ts">
-import {PTouchInterface, PTouchInterfaceUSB} from "@/ptouch/interface"
 import * as bootstrap from 'bootstrap';
 import {FontAwesomeIcon} from "@fortawesome/vue-fontawesome";
 import {library} from "@fortawesome/fontawesome-svg-core"
@@ -105,16 +103,24 @@ import DeviceInfoModal from "@/components/device_info_modal/DeviceInfoModal.vue"
 import type {EditorType} from "@/components/editor/editor";
 
 import {DeviceInfoModalProps, PTouchDeviceStatusData, PTouchDeviceTypeData, WebUSBInfoData} from "@/components/device_info_modal/prop_type";
-import {PTouchInterfaceMock} from "@/ptouch/mock_interface";
 import Preview, {PreviewElementClickedEvent} from "@/components/preview/Preview.vue";
 import {Design, DesignElement, DesignElementIcon, DesignElementImage, DesignElementText, DesignInterface} from "@/design";
 import EditorText from "@/components/editor/EditorText.vue";
 import EditorImage from "@/components/editor/EditorImage.vue";
 import EditorIcon from "@/components/editor/EditorIcon.vue";
 import Toolbar from "@/components/toolbar/Toolbar.vue";
-import {findTapeInfo, PTouchTapeInfo} from "@/ptouch/data";
+import {findTapeInfo, PTouchDeviceStatus, PTouchTapeInfo} from "@/ptouch/data";
+import {markRaw} from "vue";
+import {InterfaceManager} from "@/ptouch/interface_manager";
+import {PrinterConnectionStatus} from "@/components/toolbar/toolbar";
 
 library.add(faUsb, faGear, faFont, faImage, faClone, faTrashCan, faStar);
+
+interface InterfaceData {
+  connected: boolean;
+  status: PTouchDeviceStatus | null;
+  deviceType: PTouchDeviceTypeData | null;
+}
 
 export default {
   name: 'AppImpl',
@@ -128,35 +134,49 @@ export default {
     EditorIcon,
   },
   data() {
+    const interfaceData: InterfaceData = {
+      connected: false,
+      status: null,
+      deviceType: null,
+    };
     return {
-      interf: new PTouchInterfaceUSB() as PTouchInterface,
+      interfaceManager: markRaw(new InterfaceManager()),
+      interfaceData: interfaceData,
+      interfaceStatusListenerId: 0,
       design: new Design() as DesignInterface,
       selected_element_ids: new Set<number>(),
       printerConnectionErrorMessage: "",
     }
   },
   computed: {
-    pxPerMM(): number | null {
+    printerConnectionStatusStr(): PrinterConnectionStatus {
+      if (this.interfaceData?.connected) {
+        return this.interfaceManager.get().is_mock() ? 'mock_connected' : 'connected';
+      } else {
+        return 'disconnected';
+      }
+    },
+    pxPerMM(): number {
       const tapeInfo = this.tape_info;
       if (tapeInfo != null) {
         return tapeInfo.width_px / (tapeInfo.width_mm - 2 * tapeInfo.margins_mm);
       }
-      return null;
+      return 8;
     },
     tape_info(): PTouchTapeInfo | null {
-      const tapeWidth = this.interf.get_status()?.media_width_mm;
+      const tapeWidth = this.interfaceData?.status?.media_width_mm;
       return tapeWidth != null ? findTapeInfo(tapeWidth) : null;
     },
     deviceInfoData(): DeviceInfoModalProps | null {
-      if (this.interf == null || !this.interf.is_connected()) {
+      if (!this.interfaceManager.get().is_connected()) {
         return null;
       }
-      const w = this.interf.get_webusb_device();
-      const devType = this.interf.get_ptouch_device_type();
-      const st = this.interf.get_status();
+      const st = this.interfaceData?.status;
       if (st == null) {
         return null;
       }
+      const w = this.interfaceManager.get().get_webusb_device();
+      const devType = this.interfaceData?.deviceType;
       const activeMasks = Array.from(st.errors ?? []).map(e => e.mask);
       let rWebusb: WebUSBInfoData | null = w == null
           ? null
@@ -223,20 +243,36 @@ export default {
     },
   },
   async setup() {
-    console.log("setup");
   },
   async mounted() {
-    if (!this.interf.is_webusb_available()) {
+    this.updateInterfaceData();
+    this.interfaceStatusListenerId = this.interfaceManager.addDeviceStatusListener(status => {
+      this.updateInterfaceData();
+    });
+
+    if (!this.interfaceManager.isWebUSBAvailable()) {
       let t = bootstrap.Toast.getOrCreateInstance(this.$refs.errorNoWebUSB as HTMLElement);
       t.show();
     }
   },
+  async unmounted() {
+    this.interfaceManager.removeDeviceStatusListener(this.interfaceStatusListenerId);
+    this.interfaceStatusListenerId = 0;
+  },
   methods: {
-    findTapeInfo,
+    updateInterfaceData() {
+      console.log("updateInterfaceData");
+      this.interfaceData = {
+        connected: this.interfaceManager.get().is_connected(),
+        status: this.interfaceManager.get().get_status(),
+        deviceType: this.interfaceManager.get().get_ptouch_device_type(),
+      };
+    },
     async connectButtonClicked() {
       console.log("deviceButtonClicked");
       try {
-        await this.interf.connect();
+        this.interfaceManager.setTypeUSB();
+        await this.interfaceManager.get().connect();
       } catch (e: unknown) {
         if (typeof e === "string") {
           this.printerConnectionErrorMessage = e;
@@ -252,12 +288,12 @@ export default {
       (this.$refs.deviceInfoModal as typeof DeviceInfoModal).show();
     },
     async connectMockDevice() {
-      this.interf = new PTouchInterfaceMock();
-      await this.interf.connect();
+      this.interfaceManager.setTypeMock();
+      await this.interfaceManager.get().connect();
     },
     disconnectButtonClicked() {
-      this.interf.disconnect();
-      this.interf = new PTouchInterfaceUSB();
+      this.interfaceManager.get().disconnect();
+      this.interfaceManager.setTypeUSB();
     },
     onElementClicked(event: PreviewElementClickedEvent) {
       if (event.ctrlPressed) {
@@ -291,14 +327,14 @@ export default {
       this.selected_element_ids.clear();
     },
     addElementText() {
-      let tapeWidth = this.interf.get_status().media_width_mm;
+      let tapeWidth = this.interfaceData.status!.media_width_mm;
       let element = new DesignElementText(this.design.nextId(), "Text", this.design.rightEndMM(), tapeWidth / 4, tapeWidth / 2);
       this.design.add(element);
       this.selected_element_ids.clear();
       this.selected_element_ids.add(element.id());
     },
     addElementImage() {
-      let tapeWidth = this.interf.get_status().media_width_mm;
+      let tapeWidth = this.interfaceData.status!.media_width_mm;
       let element = new DesignElementImage(this.design.nextId(),
           null,
           this.design.rightEndMM(),
@@ -314,7 +350,7 @@ export default {
       this.selected_element_ids.add(element.id());
     },
     addElementIcon() {
-      let tapeWidth = this.interf.get_status().media_width_mm;
+      let tapeWidth = this.interfaceData.status!.media_width_mm;
       let element = new DesignElementIcon(
           this.design.nextId(),
           'star',
@@ -334,7 +370,7 @@ export default {
       let printCanvas = document.createElement("canvas") as HTMLCanvasElement;
       let printCtx = printCanvas.getContext("2d", {willReadFrequently: true})!;
       this.design.renderToPrint({ctx: printCtx, px_per_mm: this.pxPerMM, canvas: printCanvas, tape_width_mm: this.tape_info!.width_mm});
-      this.interf.print(printCanvas, false);
+      this.interfaceManager.get().print(printCanvas, false);
     },
   },
 }

@@ -63,10 +63,6 @@ export class PTouchInterfaceMock implements PTouchInterface {
         return this.connected;
     }
 
-    is_webusb_available(): boolean {
-        return true;
-    }
-
     get_device_name(): string {
         return this.get_ptouch_device_type()!.name + " (Mock)";
     }
@@ -90,5 +86,8 @@ export class PTouchInterfaceMock implements PTouchInterface {
         link.download = "label.png";
         link.href = canvas.toDataURL("image/png");
         link.click();
+    }
+
+    set_status_callback(callback: () => void): void {
     }
 }

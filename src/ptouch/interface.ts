@@ -36,8 +36,6 @@ export interface PTouchInterface {
 
     is_connected(): boolean;
 
-    is_webusb_available(): boolean;
-
     get_device_name(): string;
 
     get_webusb_device(): USBDevice | null;
@@ -49,6 +47,8 @@ export interface PTouchInterface {
     is_mock(): boolean;
 
     print(canvas: HTMLCanvasElement, chain: boolean): Promise<void>;
+
+    set_status_callback(callback: () => void): void;
 }
 
 export class PTouchInterfaceUSB implements PTouchInterface {
@@ -61,6 +61,7 @@ export class PTouchInterfaceUSB implements PTouchInterface {
 
     private connected = false;
     private pollInterval: number | null = null;
+    private statusCallback: (() => void) | null = null;
 
     async connect() {
         if (this.connected) {
@@ -68,21 +69,17 @@ export class PTouchInterfaceUSB implements PTouchInterface {
         }
         await this.open();
         await this.init();
+        this.connected = true;
         await this.update_status();
         this.startStatusPoll();
-        this.connected = true;
     }
 
     private startStatusPoll() {
         if (this.pollInterval == null) {
             this.pollInterval = setInterval(async () => {
                 try {
-                    const oldStatusRaw = this.deviceStatusRaw?.join(";");
                     if (!await this.readStatusIfAvailable()) {
                         await this.update_status();
-                    }
-                    if (oldStatusRaw !== this.deviceStatusRaw?.join(";")) {
-                        console.info("Status changed:", this.deviceStatus);
                     }
                 } catch (e) {
                     console.error("Error while polling status:", e);
@@ -111,7 +108,14 @@ export class PTouchInterfaceUSB implements PTouchInterface {
     }
 
     async update_status() {
+        const oldStatusRaw = this.deviceStatusRaw?.join(";");
         [this.deviceStatus, this.deviceStatusRaw] = await this.getstatus();
+        if (oldStatusRaw !== this.deviceStatusRaw?.join(";")) {
+            console.info("Status changed:", this.deviceStatus);
+            if (this.statusCallback) {
+                this.statusCallback();
+            }
+        }
     }
 
     get_status() {
@@ -394,10 +398,6 @@ export class PTouchInterfaceUSB implements PTouchInterface {
         return null;
     }
 
-    is_webusb_available() {
-        return !!navigator.usb;
-    }
-
     get_device_name() {
         return this.deviceType?.name ?? "?";
     }
@@ -486,5 +486,9 @@ export class PTouchInterfaceUSB implements PTouchInterface {
                 this.startStatusPoll();
             }
         }
+    }
+
+    set_status_callback(callback: (status: PTouchDeviceStatus) => void): void {
+        this.statusCallback = callback;
     }
 }
