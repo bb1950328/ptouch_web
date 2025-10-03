@@ -35,6 +35,7 @@ export interface PTouchDeviceType {
 export interface PTouchErrorInformation {
     mask: number;
     description: string;
+    can_still_print: boolean;
 }
 
 export interface PTouchPhase {
@@ -256,15 +257,15 @@ export const PTOUCH_DEVICE_TYPES: PTouchDeviceType[] = [
 
 export const PTOUCH_ERROR_INFORMATIONS: PTouchErrorInformation[] = [
     //table 1, page 26
-    {mask: 0x01, description: "No media"},
-    {mask: 0x4, description: "Cutter Jam"},
-    {mask: 0x8, description: "Weak Batteries"},
-    {mask: 0x40, description: "High Voltage Adapter"},
+    {mask: 0x01, description: "No media", can_still_print: false},
+    {mask: 0x4, description: "Cutter Jam", can_still_print: false},
+    {mask: 0x8, description: "Weak Batteries", can_still_print: true},
+    {mask: 0x40, description: "High Voltage Adapter", can_still_print: true},
 
     //table 2, page 26
-    {mask: 0x01<<8, description: "Replace media"},
-    {mask: 0x10<<8, description: "Cover open"},
-    {mask: 0x20<<8, description: "Overheating"},
+    {mask: 0x01<<8, description: "Replace media", can_still_print: false},
+    {mask: 0x10<<8, description: "Cover open", can_still_print: false},
+    {mask: 0x20<<8, description: "Overheating", can_still_print: false},
 ];
 
 export const PTOUCH_STATUS_TYPES: PTouchStatusType[] = [

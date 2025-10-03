@@ -14,7 +14,7 @@ import {
     PTouchDeviceTypeFlags,
     PTouchErrorInformation
 } from "./data";
-import {sleep} from "../util";
+import {sleep} from "@/util";
 
 function findDeviceType(device: USBDevice) {
     for (let dt of PTOUCH_DEVICE_TYPES) {
@@ -40,9 +40,9 @@ export interface PTouchInterface {
 
     get_device_name(): string;
 
-    get_webusb_device(): USBDevice|null;
+    get_webusb_device(): USBDevice | null;
 
-    get_ptouch_device_type(): PTouchDeviceType|null;
+    get_ptouch_device_type(): PTouchDeviceType | null;
 
     require_connected(): void;
 
@@ -55,10 +55,12 @@ export class PTouchInterfaceUSB implements PTouchInterface {
     private device: USBDevice | null = null;
     private deviceType: PTouchDeviceType | null = null;
     private deviceStatus: PTouchDeviceStatus | null = null;
+    private deviceStatusRaw: Uint8Array | null = null;
     private outEndpointNr = 0x02;
     private inEndpointNr = 0x81;
 
     private connected = false;
+    private pollInterval: number | null = null;
 
     async connect() {
         if (this.connected) {
@@ -67,13 +69,41 @@ export class PTouchInterfaceUSB implements PTouchInterface {
         await this.open();
         await this.init();
         await this.update_status();
+        this.startStatusPoll();
         this.connected = true;
+    }
+
+    private startStatusPoll() {
+        if (this.pollInterval == null) {
+            this.pollInterval = setInterval(async () => {
+                try {
+                    const oldStatusRaw = this.deviceStatusRaw?.join(";");
+                    if (!await this.readStatusIfAvailable()) {
+                        await this.update_status();
+                    }
+                    if (oldStatusRaw !== this.deviceStatusRaw?.join(";")) {
+                        console.info("Status changed:", this.deviceStatus);
+                    }
+                } catch (e) {
+                    console.error("Error while polling status:", e);
+                    await this.disconnect();
+                }
+            }, 2000);
+        }
+    }
+
+    private stopStatusPoll() {
+        if (this.pollInterval != null) {
+            clearInterval(this.pollInterval);
+            this.pollInterval = null;
+        }
     }
 
     async disconnect() {
         if (!this.device || !this.connected) {
             return;
         }
+        this.stopStatusPoll();
         await this.device.close();
         this.device = null;
         this.deviceType = null;
@@ -81,7 +111,7 @@ export class PTouchInterfaceUSB implements PTouchInterface {
     }
 
     async update_status() {
-        this.deviceStatus = await this.getstatus();
+        [this.deviceStatus, this.deviceStatusRaw] = await this.getstatus();
     }
 
     get_status() {
@@ -237,7 +267,6 @@ export class PTouchInterfaceUSB implements PTouchInterface {
             let transferResult = await this.device!.transferIn(this.inEndpointNr, 32);
             if (transferResult.status != "ok") {
                 throw new Error("Failed to read status. Transfer result: " + transferResult.status);
-
             }
             buf = transferResult.data!;
             tx = buf.byteLength;
@@ -246,6 +275,25 @@ export class PTouchInterfaceUSB implements PTouchInterface {
             throw new Error("Failed to read status. Timeout");
         }
 
+        const raw = new Uint8Array(buf.byteLength);
+        for (let i = 0; i < buf.byteLength; i++) {
+            raw[i] = buf.getUint8(i);
+        }
+
+        return [await this.readStatusBuffer(buf), raw];
+    }
+
+    private async readStatusIfAvailable(): Promise<boolean> {
+        let transferResult = await this.device!.transferIn(this.inEndpointNr, 32);
+        if (transferResult.status == "ok" && transferResult.data!.byteLength == 32) {
+            const buf = transferResult.data!;
+            await this.readStatusBuffer(buf);
+            return true;
+        }
+        return false;
+    }
+
+    private async readStatusBuffer(buf: DataView<ArrayBuffer>) {
         if (buf.byteLength == 32) {
             if (buf.getUint8(0) == 0x80 && buf.getUint8(1) == 0x20) {
                 let error_int = buf.getUint16(9, false);
@@ -376,47 +424,67 @@ export class PTouchInterfaceUSB implements PTouchInterface {
         rasterline[byte] |= 1 << (7 - bit);
     }
 
+    private async checkErrorsWhilePrinting() {
+        await this.readStatusIfAvailable();
+        for (let err of this.deviceStatus!.errors) {
+            if (!err.can_still_print) {
+                throw Error("Cannot start printing because device reported errors: " + this.deviceStatus!.errors);
+            }
+        }
+    }
+
     async print(canvas: HTMLCanvasElement, chain: boolean) {
-        const tapeInfo = findTapeInfo(this.deviceStatus!.media_width_mm)!;
-        const tapeWidth = tapeInfo.width_px
-        const maxPixels = this.deviceType!.max_width_px;
+        try {
+            this.stopStatusPoll();
 
-        const offset = Math.round((maxPixels / 2) - (canvas.height / 2));
+            await this.checkErrorsWhilePrinting();
 
-        if (this.deviceType!.flags.has(PTouchDeviceTypeFlags.RASTER_PACKBITS)) {
-            await this.enable_packbits();
-        }
-        await this.rasterstart();
+            const tapeInfo = findTapeInfo(this.deviceStatus!.media_width_mm)!;
+            const tapeWidth = tapeInfo.width_px
+            const maxPixels = this.deviceType!.max_width_px;
 
-        if (this.deviceType!.flags.has(PTouchDeviceTypeFlags.USE_INFO_CMD)) {
-            await this.info_cmd(canvas.width);
-        }
-        if (this.deviceType!.flags.has(PTouchDeviceTypeFlags.D460BT_MAGIC)) {
-            if (chain) {
-                await this.send_d460bt_chain();
+            const offset = Math.round((maxPixels / 2) - (canvas.height / 2));
+
+            if (this.deviceType!.flags.has(PTouchDeviceTypeFlags.RASTER_PACKBITS)) {
+                await this.enable_packbits();
             }
-            await this.send_d460bt_magic();
-        }
-        if (this.deviceType!.flags.has(PTouchDeviceTypeFlags.HAS_PRECUT)) {
-            await this.send_precut_cmd(true);
-        }
+            await this.rasterstart();
 
-        const ctx = canvas.getContext("2d")!;
-
-        const rasterline = new Uint8Array(this.deviceType!.max_width_px / 8);
-        for (let x = 0; x < canvas.width; x++) {
-            const imgData = ctx.getImageData(x, 0, 1, canvas.height);
-            rasterline.fill(0);
-
-            for (let y = 0; y < canvas.height; y++) {
-                const pixel_red = imgData.data[y * 4];
-                if (pixel_red == 0) {
-                    this.rasterline_setpixel(rasterline, offset + y);
+            if (this.deviceType!.flags.has(PTouchDeviceTypeFlags.USE_INFO_CMD)) {
+                await this.info_cmd(canvas.width);
+            }
+            if (this.deviceType!.flags.has(PTouchDeviceTypeFlags.D460BT_MAGIC)) {
+                if (chain) {
+                    await this.send_d460bt_chain();
                 }
+                await this.send_d460bt_magic();
+            }
+            if (this.deviceType!.flags.has(PTouchDeviceTypeFlags.HAS_PRECUT)) {
+                await this.send_precut_cmd(true);
             }
 
-            await this.sendraster(rasterline);
+            const ctx = canvas.getContext("2d")!;
+
+            const rasterline = new Uint8Array(this.deviceType!.max_width_px / 8);
+            for (let x = 0; x < canvas.width; x++) {
+                const imgData = ctx.getImageData(x, 0, 1, canvas.height);
+                rasterline.fill(0);
+
+                for (let y = 0; y < canvas.height; y++) {
+                    const pixel_red = imgData.data[y * 4];
+                    if (pixel_red == 0) {
+                        this.rasterline_setpixel(rasterline, offset + y);
+                    }
+                }
+
+                await this.sendraster(rasterline);
+                await this.checkErrorsWhilePrinting();
+            }
+            await this.finalize(chain);
+        } finally {
+            if (this.is_connected()) {
+                this.startStatusPoll();
+            }
         }
-        await this.finalize(chain);
     }
 }
